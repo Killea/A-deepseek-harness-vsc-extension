@@ -385,7 +385,15 @@ export class SettingsService {
   /** 应用一次 provider 编辑：path ops mutate（expectedRevision）+ 可选 credentials.set。 */
   async applyProfile(profile: SettingsProfileApply): Promise<SettingsWriteResult> {
     const client = this.requireClient()
-    const ops = pathOps(profile.settingsPath, profile.before, profile.after)
+    // 对齐官方 ProviderEditor：空 key 采纳一个休眠 pi-ai 路由时，物化一个空
+    // profile（原生鉴权）而非零 op——否则「添加成功」却什么都没写。
+    const materializesNativeProfile = profile.ns === 'llm-pi-ai'
+      && profile.fallback === undefined
+      && profile.before === undefined
+      && Object.keys(profile.after).length === 0
+    const ops = materializesNativeProfile
+      ? [{ op: 'set', path: [...profile.settingsPath], value: {} }]
+      : pathOps(profile.settingsPath, profile.before, profile.after)
     if (ops.length > 0) {
       try {
         await client.call('settings.mutate', {

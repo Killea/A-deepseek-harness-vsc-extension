@@ -124,6 +124,7 @@ export function ProviderEditorCard(props: ProviderEditorCardProps) {
         displayName: row.displayName,
         ...row.declared === true ? { declared: true } : {},
         before: committedOriginal,
+        fallback,
         after: next,
         keyRef,
         keyValue,

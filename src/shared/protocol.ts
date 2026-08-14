@@ -655,6 +655,8 @@ export interface SettingsProfileApply {
   declared?: boolean
   /** 卡片打开时捕获的 user 层子树（pathOps 的 before 基准）。 */
   before: unknown
+  /** 卡片打开时的有效 profile（base/user 合并；undefined = 休眠 provider）。 */
+  fallback?: unknown
   /** 编辑完成的草稿（含 apiKeyEnv 物化；models 等字段）。 */
   after: Record<string, unknown>
   /** key 写入目标 ref（profile 命名了则用命名的，否则派生）。 */
