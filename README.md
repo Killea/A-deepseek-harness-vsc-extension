@@ -59,8 +59,8 @@ We are trying to make this project better, including following the dsh and addin
 
 ### Following
 
-- [ ] Display usage 显示用量
-- [ ] Context usage 显示上下文
+- [x] Display usage 显示用量
+- [x] Context usage 显示上下文
 - [ ] Fork session fork 会话
 - [ ] Changes list 产物列表
 - [ ] SubAgents management SubAgent 管理
