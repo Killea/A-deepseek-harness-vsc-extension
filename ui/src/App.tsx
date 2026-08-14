@@ -25,6 +25,7 @@ import type {
   SettingsPanelView,
   SkillsSnapshot,
   TodoItem,
+  UsageStatsView,
   WebviewToExtensionMessage,
   WorkspaceView,
 } from '../../src/shared/protocol.ts'
@@ -95,6 +96,8 @@ export default function App() {
   const [todosBySession, setTodosBySession] = useState<Record<string, TodoItem[] | null>>({})
   // 权限席位 + /permission 弹出选择器（permissions 投影；null = 能力缺席 → 隐藏）。
   const [permissionsBySession, setPermissionsBySession] = useState<Record<string, PermissionSelectView | null>>({})
+  // 用量统计 chip + modal（token/时间/context 四投影组合；null = 全缺席 → chip 隐藏）。
+  const [statsBySession, setStatsBySession] = useState<Record<string, UsageStatsView | null>>({})
   // M6: 设置面板视图切换 + 面板数据 + settingsReply 应答关联。
   const [view, setView] = useState<'chat' | 'settings'>('chat')
   const [webviewVisible, setWebviewVisible] = useState(document.visibilityState === 'visible')
@@ -207,6 +210,7 @@ export default function App() {
           setReadEndSeq((prev) => omitKey(prev, key))
           setReadErrorSeq((prev) => omitKey(prev, key))
           setPermissionsBySession((prev) => omitKey(prev, key))
+          setStatsBySession((prev) => omitKey(prev, key))
           break
         }
         case 'pending':
@@ -230,6 +234,9 @@ export default function App() {
         case 'permissions':
           if (!accept('permissions', message.sessionId, message.requestId)) break
           setPermissionsBySession((prev) => ({ ...prev, [composerKey(message.sessionId)]: message.permissions }))
+          break
+        case 'stats':
+          setStatsBySession((prev) => ({ ...prev, [message.sessionId]: message.stats }))
           break
         case 'settings':
           setSettingsPanel(message.panel)
@@ -551,6 +558,7 @@ export default function App() {
                 [key]: (prev[key] ?? []).filter((notice) => notice.id !== id),
               }))}
               todos={sessionId ? (todosBySession[sessionId] ?? null) : null}
+              stats={sessionId ? (statsBySession[sessionId] ?? null) : null}
               running={running}
               submitting={operation?.kind === 'send' || operation?.kind === 'command'}
               modelSubmitting={operation?.kind === 'model'}

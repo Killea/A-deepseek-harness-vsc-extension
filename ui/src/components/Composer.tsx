@@ -9,6 +9,7 @@ import type {
   SessionModelsView,
   SkillsSnapshot,
   TodoItem,
+  UsageStatsView,
 } from '../../../src/shared/protocol.ts'
 import { detectTrigger, type TriggerGuardTier } from '../../../src/shared/trigger.ts'
 import {
@@ -27,6 +28,7 @@ import { permissionLabel } from '../permission.ts'
 import { TodoStrip } from './TodoStrip.tsx'
 import { ModelSelect } from './ModelSelect.tsx'
 import { PermissionSelect } from './PermissionSelect.tsx'
+import { UsageChip } from './UsageChip.tsx'
 
 interface ComposerProps {
   text: string
@@ -67,6 +69,8 @@ interface ComposerProps {
   onNoticeDismissed: (id: number) => void
   /** M4b: 当前会话的 todo 计划条（null/[] = 不渲染）。 */
   todos: TodoItem[] | null
+  /** 当前会话的用量统计（token/时间/context 四投影组合；null = 全缺席 → chip 隐藏）。 */
+  stats: UsageStatsView | null
   running: boolean
   submitting: boolean
   modelSubmitting: boolean
@@ -121,6 +125,7 @@ export function Composer({
   notices,
   onNoticeDismissed,
   todos,
+  stats,
   running,
   submitting,
   modelSubmitting,
@@ -772,6 +777,7 @@ export function Composer({
       {/* 输入框下方的席位（右对齐）：权限席位 + 模型席位并列。running/未就绪时禁用，
           routable=false 不锁模型席位（作为恢复入口）。 */}
       <div className="flex flex-wrap items-center justify-end gap-2 px-3.5 pb-1">
+        <UsageChip stats={stats} />
         <PermissionSelect
           value={permissions}
           onSelect={onPermissionSelect}

@@ -53,6 +53,9 @@ export type ExtensionToWebviewMessage =
   | { type: 'todos'; sessionId: string; todos: TodoItem[] | null }
   // 权限席位 + /permission 弹出选择器的数据源（permissions 投影；null = 能力缺席 → 隐藏）。
   | { type: 'permissions'; sessionId: string | null; requestId: number; permissions: PermissionSelectView | null }
+  // 当前会话的用量统计（tokenUsage/sessionStats/contextPressure/contextBreakdown 投影组合；
+  // null = 全部投影缺席 → chip 隐藏，静默降级）。
+  | { type: 'stats'; sessionId: string; stats: UsageStatsView | null }
   // M6: 设置面板整页视图（打开时 / 状态翻转 / 每次写成功后再拉取时推送；
   // webview 纯渲染，所有 wire 调用在扩展侧执行）。
   | { type: 'settings'; panel: SettingsPanelView }
@@ -727,4 +730,48 @@ export interface DiscoveredModelView {
   name?: string
   contextWindow?: number
   maxTokens?: number
+}
+
+// ---- 用量与统计（tokenUsage / sessionStats / contextPressure / contextBreakdown 投影）----
+
+/** provider 计费口径的全会话累计 token 用量（tokenUsage 投影，四桶不重叠）。 */
+export interface TokenUsageStatsView {
+  uncachedInputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
+/** 全会话累计计数与耗时（sessionStats 投影；会话日志事件 `time` 折叠，非 timer 服务）。 */
+export interface SessionStatsView {
+  turns: number
+  steps: number
+  llmMs: number
+  toolMs: number
+  ttftMs: number
+  ttftSteps: number
+  decodeMs: number
+  decodeTokens: number
+}
+
+/** 最近一次请求的 provider 报告 prompt 大小与路由容量（contextPressure 投影，last-wins）。 */
+export interface ContextPressureStatsView {
+  pressureTokens?: number
+  projectedTokens?: number
+  contextWindow?: number
+}
+
+/** 下一请求 prompt 的启发式构成（contextBreakdown 投影：系统提示词/工具 schema/对话消息）。 */
+export interface ContextBreakdownStatsView {
+  systemTokens: number
+  toolsTokens: number
+  messageTokens: number
+}
+
+/** 一次会话的用量统计组合视图；字段缺席 = 对应投影未知/能力缺席（静默降级）。 */
+export interface UsageStatsView {
+  tokenUsage?: TokenUsageStatsView
+  sessionStats?: SessionStatsView
+  contextPressure?: ContextPressureStatsView
+  contextBreakdown?: ContextBreakdownStatsView
 }

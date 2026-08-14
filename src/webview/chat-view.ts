@@ -38,6 +38,9 @@ import { resolveOpenPath } from './open-file.ts'
 /** ADR-0004: 文件提及词表上限；超过则上送空词表（禁用提及），避免超大工作区推送巨型集合。 */
 const FILE_INDEX_MAX = 5000
 
+/** 用量统计相关投影 key（tokenUsage/sessionStats/contextPressure/contextBreakdown）。 */
+const USAGE_STATS_KEYS = ['tokenUsage', 'sessionStats', 'contextPressure', 'contextBreakdown'] as const
+
 /** M6: 面板 location 卡的扩展侧事实来源（由 extension.ts 注入闭包）。 */
 export interface DshFacts {
   status: string
@@ -109,12 +112,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.updateActivity(sessionId, { pending: items.length > 0 })
     })
     // M4b: projection change (selected session only; key-filtered so a
-    // non-todos/permissions projection does not re-post the plan strip or
-    // the permission seat).
+    // non-todos/permissions/usage-stats projection does not re-post the plan
+    // strip, the permission seat, or the usage chip).
     projections.on('change', (sessionId: string, key: string) => {
       if (sessionId !== this.selectedSessionId) return
       if (key === 'todos') this.postTodos(sessionId)
       else if (key === 'permissions') this.postPermissions(sessionId)
+      else if ((USAGE_STATS_KEYS as readonly string[]).includes(key)) this.postStats(sessionId)
     })
   }
 
@@ -499,6 +503,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'pending', sessionId, items: this.pendingInteractions.snapshot(sessionId) })
     this.postTodos(sessionId)
     this.postPermissions(sessionId)
+    this.postStats(sessionId)
     await this.refreshComposerCatalogs(sessionId)
   }
 
@@ -557,9 +562,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const snapshot = await this.conversations.attach(sessionId)
       if (this._selectedSessionId !== sessionId) return // user switched away meanwhile
       this.post({ type: 'conversation', sessionId, snapshot })
-      // M4b: attach 已同步 seed 投影 store（决策 9 回调），补发 todo 计划条与权限席位快照。
+      // M4b: attach 已同步 seed 投影 store（决策 9 回调），补发 todo 计划条、权限席位与用量统计快照。
       this.postTodos(sessionId)
       this.postPermissions(sessionId)
+      this.postStats(sessionId)
     } catch (error) {
       this.post({ type: 'notice', text: String(error) })
     }
@@ -568,6 +574,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   /** M4b: 上送当前会话的 todos 投影（null = 无计划/能力缺席 → strip 隐藏）。 */
   private postTodos(sessionId: string): void {
     this.post({ type: 'todos', sessionId, todos: this.projections.todosOf(sessionId) })
+  }
+
+  /** 上送当前会话的用量统计组合（null = 四个投影全缺席 → chip 隐藏，静默降级）。 */
+  private postStats(sessionId: string): void {
+    this.post({ type: 'stats', sessionId, stats: this.projections.statsOf(sessionId) })
   }
 
   /** 上送某会话的 permissions 投影（null = 能力缺席 → 席位/弹出隐藏）。 */
