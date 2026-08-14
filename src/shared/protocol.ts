@@ -8,6 +8,9 @@
 export type ExtensionToWebviewMessage =
   | { type: 'status'; status: string; detail?: string }
   | { type: 'workspace'; workspace: WorkspaceView | null }
+  // assistant markdown 渲染（ADR-0004）：工作区真实文件相对路径集（posix），供
+  // 行内代码 token 的文件提及判定（settled-only）；超保险丝时为空数组（禁用提及）。
+  | { type: 'fileIndex'; files: string[] }
   | { type: 'sessions'; items: SessionSummary[] }
   | { type: 'selectedSession'; sessionId: string | null; navigationId?: number }
   | { type: 'conversation'; sessionId: string; snapshot: ConversationSnapshot }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ConversationItem, ToolResultView } from '../../../src/shared/protocol.ts'
-import { FencedText } from './FencedText.tsx'
+import { MarkdownText, type MarkdownFileMentions } from '../markdown/MarkdownText.tsx'
 import {
   IconApiOutline14,
   IconBrowseOutline16,
@@ -20,6 +20,10 @@ interface ChatAreaProps {
   workspacePath?: string
   /** M5b: 文件链接点击回调（webview → 扩展侧 openFile）。 */
   onOpenFile: (path: string) => void
+  /** ADR-0004: assistant 正文外链点击回调（webview → 扩展侧 openExternalUrl）。 */
+  onOpenExternalUrl: (url: string) => void
+  /** ADR-0004: 行内文件提及解析器（settled-only）。 */
+  fileMentions: MarkdownFileMentions
 }
 
 /**
@@ -140,19 +144,26 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
   )
 }
 
-/** 助手消息：思考块（可折叠）+ 正文 + 流式光标。 */
-function AssistantItemView({ item }: { item: Extract<ConversationItem, { kind: 'assistant' }> }) {
+/** 助手消息：思考块（可折叠）+ markdown 正文（ADR-0004）+ 流式光标。 */
+function AssistantItemView({
+  item, onOpenExternalUrl, fileMentions,
+}: {
+  item: Extract<ConversationItem, { kind: 'assistant' }>
+  onOpenExternalUrl: (url: string) => void
+  fileMentions: MarkdownFileMentions
+}) {
   return (
     <div>
       {item.reasoning ? <ThinkingSection reasoning={item.reasoning} streaming={item.partial} /> : null}
-      <FencedText
+      <MarkdownText
         text={item.text}
-        suffix={
-          item.partial ? (
-            <span className="ml-0.5 inline-block h-[1em] w-0.5 animate-cursor-blink bg-foreground align-text-bottom" />
-          ) : null
-        }
+        streaming={item.partial}
+        onOpenExternalUrl={onOpenExternalUrl}
+        fileMentions={fileMentions}
       />
+      {item.partial ? (
+        <span className="ml-0.5 inline-block h-[1em] w-0.5 animate-cursor-blink bg-foreground align-text-bottom" />
+      ) : null}
     </div>
   )
 }
@@ -531,19 +542,19 @@ function ToolCardView({
 }
 
 function ItemView({
-  item,
-  workspacePath,
-  onOpenFile,
+  item, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions,
 }: {
   item: ConversationItem
   workspacePath?: string
   onOpenFile: (path: string) => void
+  onOpenExternalUrl: (url: string) => void
+  fileMentions: MarkdownFileMentions
 }) {
   switch (item.kind) {
     case 'user':
       return <UserItemView text={item.text} />
     case 'assistant':
-      return <AssistantItemView item={item} />
+      return <AssistantItemView item={item} onOpenExternalUrl={onOpenExternalUrl} fileMentions={fileMentions} />
     case 'note':
       return <div className="my-1 text-center text-xs text-description">{item.text}</div>
     case 'command':
@@ -557,7 +568,7 @@ function ItemView({
   }
 }
 
-export function ChatArea({ items, running, workspacePath, onOpenFile }: ChatAreaProps) {
+export function ChatArea({ items, running, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Streaming: keep the newest content in view (sticky when the user is
@@ -585,7 +596,13 @@ export function ChatArea({ items, running, workspacePath, onOpenFile }: ChatArea
               key={item.kind === 'tool' ? item.callId : item.kind === 'command' ? item.commandId : i}
               className="pt-2.5"
             >
-              <ItemView item={item} workspacePath={workspacePath} onOpenFile={onOpenFile} />
+              <ItemView
+                item={item}
+                workspacePath={workspacePath}
+                onOpenFile={onOpenFile}
+                onOpenExternalUrl={onOpenExternalUrl}
+                fileMentions={fileMentions}
+              />
             </div>
           ))}
           {running ? (

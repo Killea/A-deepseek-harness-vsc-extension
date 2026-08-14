@@ -33,6 +33,9 @@ import type { DshLauncher } from '../dsh/discovery.ts'
 import { escapeHtml, getNonce, injectCsp, rewriteAssetUrls } from './html.ts'
 import { resolveOpenPath } from './open-file.ts'
 
+/** ADR-0004: 文件提及词表上限；超过则上送空词表（禁用提及），避免超大工作区推送巨型集合。 */
+const FILE_INDEX_MAX = 5000
+
 /** M6: 面板 location 卡的扩展侧事实来源（由 extension.ts 注入闭包）。 */
 export interface DshFacts {
   status: string
@@ -60,6 +63,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private unboundSessionResolution: Promise<{ sessionId: string }> | null = null
   /** M6: 设置面板当前是否打开（status 翻转时按需刷新面板视图）。 */
   private _settingsOpen = false
+  /** ADR-0004: 已上送文件提及词表对应的工作区根（变化才重枚举）。 */
+  private fileIndexWorkspacePath: string | null = null
 
   /** 当前选中会话（extension.ts 的 commands/change 失效重拉用）。 */
   get selectedSessionId(): string | null {
@@ -378,10 +383,37 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /**
+   * ADR-0004: 上送工作区真实文件相对路径集（posix），供 webview 判定 assistant
+   * 正文行内代码 token 是否为文件（settled-only 文件提及）。工作区根不变则跳过
+   * 重枚举；枚举失败或无工作区 → 空词表（静默禁用提及）。
+   */
+  private async postFileIndex(): Promise<void> {
+    const workspace = this.sessions.currentWorkspace
+    if (!workspace) {
+      this.fileIndexWorkspacePath = null
+      this.post({ type: 'fileIndex', files: [] })
+      return
+    }
+    if (this.fileIndexWorkspacePath === workspace.path) return
+    this.fileIndexWorkspacePath = workspace.path
+    try {
+      const files = await this.atRef.listCandidates()
+      this.post({
+        type: 'fileIndex',
+        files: files.length > FILE_INDEX_MAX ? [] : files.map((file) => file.relativePath),
+      })
+    } catch {
+      this.post({ type: 'fileIndex', files: [] })
+    }
+  }
+
   /** Reload the workspace info and session list into the view. */
   async refreshSessions(): Promise<void> {
     const workspace = this.sessions.currentWorkspace
     this.post({ type: 'workspace', workspace })
+    // ADR-0004: 工作区变化时重上送文件提及词表（fire-and-forget，失败静默降级）。
+    void this.postFileIndex()
     if (!workspace) return
     const visible = await this.sessions.listSessions(this._selectedSessionId)
     for (const item of visible) {

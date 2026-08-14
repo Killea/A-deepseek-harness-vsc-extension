@@ -21,7 +21,7 @@ export function injectCsp(html: string, nonce: string, cspSource: string): strin
   let out = html.replace(
     '<head>',
     `<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; `
-      + `script-src 'nonce-${nonce}'; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} data:;">`,
+      + `script-src 'nonce-${nonce}'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; img-src ${cspSource} data:;">`,
   )
   out = out.replace(/<script([^>]*)>/gu, (match, attrs: string) => {
     if (attrs.includes('type="module"')) {

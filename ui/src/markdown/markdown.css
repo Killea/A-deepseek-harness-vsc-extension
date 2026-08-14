@@ -1,0 +1,142 @@
+/**
+ * Markdown typography + shiki token theme for the assistant renderer.
+ * Colors route through VS Code's own --vscode-* variables (and the design
+ * tokens in style.css), so light/dark/high-contrast all follow the host theme.
+ */
+
+/* ---- shiki CSS-variables theme: token colors mapped to VS Code tokens ---- */
+:root {
+  --shiki-color-text: var(--vscode-editor-foreground, var(--vscode-foreground));
+  --shiki-color-background: transparent;
+  --shiki-token-comment: var(--vscode-descriptionForeground);
+  --shiki-token-string: var(--vscode-charts-green);
+  --shiki-token-string-expression: var(--vscode-charts-green);
+  --shiki-token-constant: var(--vscode-charts-blue);
+  --shiki-token-keyword: var(--vscode-charts-purple);
+  --shiki-token-number: var(--vscode-charts-orange);
+  --shiki-token-function: var(--vscode-textLink-foreground);
+  --shiki-token-parameter: var(--vscode-charts-blue);
+  --shiki-token-punctuation: var(--vscode-descriptionForeground);
+  --shiki-token-link: var(--vscode-textLink-foreground);
+}
+
+/* ---- block typography ---- */
+.markdown {
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.markdown p {
+  margin: 0.35em 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 0.6em 0 0.3em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown h1 { font-size: 1.5em; }
+.markdown h2 { font-size: 1.3em; }
+.markdown h3 { font-size: 1.15em; }
+.markdown h4 { font-size: 1em; }
+.markdown h5 { font-size: 0.9em; }
+.markdown h6 { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+
+.markdown ul,
+.markdown ol {
+  margin: 0.35em 0;
+  padding-left: 1.5em;
+}
+
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li { margin: 0.1em 0; }
+
+.markdown li.task-list-item {
+  list-style: none;
+}
+
+.markdown blockquote {
+  margin: 0.35em 0;
+  padding: 0 0.9em;
+  border-left: 3px solid var(--vscode-textBlockQuote-border, var(--vscode-panel-border));
+  background: var(--vscode-textBlockQuote-background, transparent);
+  color: var(--vscode-descriptionForeground);
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--vscode-panel-border);
+  margin: 0.75em 0;
+}
+
+.markdown code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  background: var(--vscode-textCodeBlock-background, rgba(127 127 127 / 0.15));
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.markdown pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markdown a {
+  color: var(--vscode-textLink-foreground);
+}
+
+.markdown del {
+  color: var(--vscode-descriptionForeground);
+}
+
+.markdown sup {
+  font-size: 0.75em;
+}
+
+/* ---- tables ---- */
+.markdown .md-table-scroll {
+  overflow-x: auto;
+  margin: 0.35em 0;
+}
+
+.markdown table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid var(--vscode-panel-border);
+  padding: 0.25em 0.6em;
+  text-align: left;
+}
+
+.markdown th {
+  background: var(--vscode-toolbar-hoverBackground, transparent);
+  font-weight: 600;
+}
+
+/* ---- file mention (inline code → open file) ---- */
+.markdown .md-file-mention {
+  cursor: pointer;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.markdown .md-file-mention:hover {
+  text-decoration: underline;
+  color: var(--vscode-textLink-activeForeground);
+}

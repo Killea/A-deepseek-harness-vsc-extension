@@ -61,6 +61,8 @@ function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
 export default function App() {
   const [status, setStatus] = useState<{ status: string; detail?: string }>({ status: 'starting' })
   const [workspace, setWorkspace] = useState<WorkspaceView | null>(null)
+  // ADR-0004: 工作区真实文件相对路径集（行内文件提及词表）。
+  const [fileIndex, setFileIndex] = useState<Set<string>>(new Set())
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<Record<string, ConversationSnapshot>>({})
@@ -111,6 +113,9 @@ export default function App() {
           break
         case 'workspace':
           setWorkspace(message.workspace)
+          break
+        case 'fileIndex':
+          setFileIndex(new Set(message.files))
           break
         case 'sessions':
           setSessions(message.items ?? [])
@@ -316,6 +321,17 @@ export default function App() {
     post({ type: 'openFile', path })
   }, [post])
 
+  // ADR-0004: assistant 正文外链点击 → 扩展侧经 openExternal 在系统浏览器打开。
+  const handleOpenExternalUrl = useCallback((url: string): void => {
+    post({ type: 'openExternalUrl', url })
+  }, [post])
+
+  // ADR-0004: 行内文件提及解析器（settled-only；命中词表 → 可点击开文件）。
+  const fileMentions = useMemo(() => ({
+    resolve: (value: string): { open: () => void; label: string; title: string } | undefined =>
+      fileIndex.has(value) ? { open: () => handleOpenFile(value), label: value, title: value } : undefined,
+  }), [fileIndex, handleOpenFile])
+
   // M3b: @ 菜单打开 → 扩展侧枚举候选（路径基准在 atResolve 时按当前会话计算）。
   const handleAtOpen = useCallback((sessionId: string | null): void => {
     const requestId = ++requestSeq.current
@@ -429,6 +445,8 @@ export default function App() {
           running={selectedRunning}
           workspacePath={workspace?.path}
           onOpenFile={handleOpenFile}
+          onOpenExternalUrl={handleOpenExternalUrl}
+          fileMentions={fileMentions}
         />
       </div>
       {pendingBlocked ? (
