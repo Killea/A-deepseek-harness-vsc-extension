@@ -33,6 +33,8 @@ import { ChatArea } from './components/ChatArea.tsx'
 import { Composer } from './components/Composer.tsx'
 import { PendingDialog } from './components/PendingDialog.tsx'
 import { SettingsPage } from './components/settings/SettingsPage.tsx'
+import { AboutGate } from './components/settings/AboutGate.tsx'
+import { LoadingPage } from './components/LoadingPage.tsx'
 import type { SettingsReply, SettingsWire } from './components/settings/wire.ts'
 import { IconStopFill16 } from '../icons/index.tsx'
 
@@ -60,7 +62,9 @@ function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
 }
 
 export default function App() {
-  const [status, setStatus] = useState<{ status: string; detail?: string }>({ status: 'starting' })
+  const [serviceStatus, setServiceStatus] = useState<{ status: string; detail?: string }>({ status: 'starting' })
+  // 瞬时操作错误通知（RPC/流级失败）：只进状态栏 detail，绝不驱动启动门。
+  const [notice, setNotice] = useState<string | null>(null)
   const [workspace, setWorkspace] = useState<WorkspaceView | null>(null)
   // ADR-0004: 工作区真实文件相对路径集（行内文件提及词表）。
   const [fileIndex, setFileIndex] = useState<Set<string>>(new Set())
@@ -111,8 +115,12 @@ export default function App() {
     const onMessage = (event: MessageEvent): void => {
       const message = event.data as ExtensionToWebviewMessage
       switch (message.type) {
-        case 'status':
-          setStatus({ status: message.status, detail: message.detail })
+        case 'serviceStatus':
+          setServiceStatus({ status: message.status, ...(message.detail === undefined ? {} : { detail: message.detail }) })
+          setNotice(null) // 生命周期变更取代瞬时通知
+          break
+        case 'notice':
+          setNotice(message.text)
           break
         case 'workspace':
           setWorkspace(message.workspace)
@@ -425,6 +433,20 @@ export default function App() {
     }
   }, [activityBySession, selected, selectedSessionId, view, webviewVisible])
 
+  // 启动门：dsh 未 ready（discovering/starting）整页 loading；终态失败（error/stopped）整页「关于」gate。
+  // 覆盖手动 view；ready/reconnecting 回到手动 view（⚙ 仍可进完整设置）。
+  const bootGate: 'loading' | 'about' | null =
+    serviceStatus.status === 'discovering' || serviceStatus.status === 'starting' ? 'loading'
+      : serviceStatus.status === 'error' || serviceStatus.status === 'stopped' ? 'about'
+        : null
+
+  if (bootGate === 'loading') {
+    return <LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} />
+  }
+  if (bootGate === 'about') {
+    return <AboutGate panel={settingsPanel} wire={wire} onOpenInBrowser={() => post({ type: 'openInBrowser' })} />
+  }
+
   // Cline ChatLayout：grid 行 [1fr auto]，消息区占满、composer 钉在底部。
   if (view === 'settings') {
     return (
@@ -441,7 +463,9 @@ export default function App() {
     <div className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] overflow-hidden">
       <div className="flex min-h-0 flex-col overflow-hidden">
         {/* 预览版清理：ready（正常态）不占 header，非 ready（错误/重连/启动中/停止）仍显示。 */}
-        {status.status !== 'ready' && <StatusBar status={status.status} detail={status.detail} />}
+        {(serviceStatus.status !== 'ready' || notice !== null) && (
+          <StatusBar status={serviceStatus.status} detail={notice ?? serviceStatus.detail} />
+        )}
         <SessionList
           workspace={workspace}
           sessions={sessions}
@@ -527,7 +551,7 @@ export default function App() {
               running={running}
               submitting={operation?.kind === 'send' || operation?.kind === 'command'}
               modelSubmitting={operation?.kind === 'model'}
-              serviceDisabled={status.status !== 'ready' && status.status !== 'reconnecting'}
+              serviceDisabled={serviceStatus.status !== 'ready' && serviceStatus.status !== 'reconnecting'}
               disabled={activity?.archivedActive === true}
             />
           </div>

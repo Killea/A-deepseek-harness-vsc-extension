@@ -163,7 +163,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           await this.refreshSessions()
           await this.refreshComposerCatalogs(sessionId)
         } catch (error) {
-          this.post({ type: 'status', status: 'error', detail: String(error) })
+          this.post({ type: 'notice', text: String(error) })
         }
         break
       }
@@ -320,7 +320,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           }
           await this.refreshSessions()
         } catch (error) {
-          this.post({ type: 'status', status: 'error', detail: String(error) })
+          this.post({ type: 'notice', text: String(error) })
         }
         break
       }
@@ -473,8 +473,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
    */
   async hydrate(): Promise<void> {
     const facts = this.dshFacts()
-    this.post({ type: 'status', status: facts.status, ...(facts.statusDetail === undefined ? {} : { detail: facts.statusDetail }) })
+    this.post({ type: 'serviceStatus', status: facts.status, ...(facts.statusDetail === undefined ? {} : { detail: facts.statusDetail }) })
     await this.refreshSessions()
+    // 启动门失败页：webview 重载/首载时若已是终态（error/stopped），推送「关于」gate 面板数据。
+    if (facts.status === 'error' || facts.status === 'stopped') await this.refreshSettings()
     const sessionId = this._selectedSessionId
     if (!sessionId) return
     this.post({ type: 'selectedSession', sessionId })
@@ -490,6 +492,32 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this.refreshComposerCatalogs(sessionId)
   }
 
+  /**
+   * 首启自动会话（boot auto-session）：ready 且尚无选中会话时，自动 resolveNewSession
+   * （复用 blank 否则 create）→ 选中 → attach，让冷启动直接落在一个绑定好的会话上。
+   * 仅在无选中会话时触发（重连/重启不抢用户当前会话）；无 workspace 等失败静默跳过
+   * （聊天页空态兜底，不误报失败门）。
+   */
+  async autoAttachSession(): Promise<void> {
+    if (this._selectedSessionId !== null) return
+    const navigationId = ++this.navigationId
+    try {
+      const { sessionId } = await this.sessions.resolveNewSession([])
+      if (navigationId !== this.navigationId || this._selectedSessionId !== null) {
+        await this.refreshSessions()
+        return
+      }
+      this._selectedSessionId = sessionId
+      this.post({ type: 'selectedSession', sessionId, navigationId })
+      await this.loadConversation(sessionId) // attach so live frames fold in
+      this.verifyBaseline(sessionId)
+      await this.refreshSessions()
+      await this.refreshComposerCatalogs(sessionId)
+    } catch {
+      // 尚未关联 Workspace / 服务尚不可用：静默跳过。
+    }
+  }
+
   /** 会话重命名：原生输入框预填当前标题，确认后走 session.rename 并刷新列表。 */
   private async renameSession(sessionId: string, currentTitle: string | null): Promise<void> {
     const input = await vscode.window.showInputBox({
@@ -502,14 +530,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       await this.sessions.renameSession(sessionId, input.trim())
       await this.refreshSessions()
     } catch (error) {
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
     }
   }
 
   /** M3: 会话 cwd 基准核验（fire-and-forget；失败仅记录，不打断交互）。 */
   private verifyBaseline(sessionId: string | null): void {
     this.atRef.verifyBaseline(sessionId).catch((error: unknown) => {
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
     })
   }
 
@@ -523,7 +551,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.postTodos(sessionId)
       this.postPermissions(sessionId)
     } catch (error) {
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
     }
   }
 
@@ -552,7 +580,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const items = await this.commands.list(sessionId)
       this.post({ type: 'commands', sessionId: responseSessionId, requestId, snapshot: { available: true, items } })
     } catch (error) {
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
     }
   }
 
@@ -572,7 +600,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.post({ type: 'skills', sessionId: responseSessionId, requestId, snapshot: { available: true, items } })
     } catch (error) {
       // 技能拉取失败：静默降级为空技能（命令照常），错误进状态栏。
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
       this.post({ type: 'skills', sessionId: responseSessionId, requestId, snapshot: { available: false, items: [] } })
     }
   }
@@ -607,7 +635,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.post({ type: 'atCandidates', sessionId, requestId, candidates })
     } catch (error) {
       // 枚举失败：上送空候选（菜单落到空态，不再挂加载），状态栏展示真实错误。
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
       this.post({ type: 'atCandidates', sessionId, requestId, candidates: { files: [], problems: [] } })
     }
   }
@@ -735,7 +763,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const models = await this.commands.models(sessionId)
       this.post({ type: 'models', sessionId: responseSessionId, requestId, models })
     } catch (error) {
-      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'notice', text: String(error) })
       this.post({
         type: 'models', sessionId: responseSessionId, requestId,
         models: { current: null, routable: null, groups: [], failures: [], error: String(error) },

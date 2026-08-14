@@ -124,7 +124,9 @@ export function SessionList({
       </div>
       <ul className="scrollable m-0 min-h-0 list-none overflow-y-auto p-0">
         {sessions.length === 0 ? (
-          <li className="px-3 py-1.5 text-xs text-description">（暂无会话）</li>
+          <li className="px-3 py-1.5 text-xs text-description">
+            {workspace === null ? '打开文件夹以开始' : '（暂无会话）'}
+          </li>
         ) : (
           visible.map((item) => {
             const active = item.sessionId === selectedSessionId

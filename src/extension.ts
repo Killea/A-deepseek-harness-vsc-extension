@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext): void {
     explicitPath,
     onStatus: (status: DshStatus, detail?: string) => {
       log(`status: ${status}${detail ? ` — ${detail}` : ''}`)
-      provider.post({ type: 'status', status, detail })
+      provider.post({ type: 'serviceStatus', status, detail })
     },
     onLog: (line) => log(line),
   })
@@ -167,7 +167,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (payload.type === 'stream/error') {
       const message = payload.error?.message ?? '事件流错误'
       log(`[events.mux] stream/error: ${message}`)
-      provider.post({ type: 'status', status: 'error', detail: `事件流错误：${message}` })
+      provider.post({ type: 'notice', text: `事件流错误：${message}` })
     }
   })
   dsh.on('host', (frame) => {
@@ -191,7 +191,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const hpayload = frame.payload as { type?: string; error?: { message?: string } }
     if (hpayload.type === 'stream/error') {
       log(`[events.host] stream/error: ${hpayload.error?.message ?? ''}`)
-      provider.post({ type: 'status', status: 'error', detail: '事件流错误' })
+      provider.post({ type: 'notice', text: '事件流错误' })
     }
     // M3b: 命令目录失效（host remote-event 允许名单透传）→ 失效缓存并重拉当前会话。
     if (frame.method === 'host/remote-event') {
@@ -262,7 +262,7 @@ export function activate(context: vscode.ExtensionContext): void {
       provider.post({ type: 'workspace', workspace })
       await provider.refreshSessions()
     } catch (error) {
-      provider.post({ type: 'status', status: 'error', detail: String(error) })
+      provider.post({ type: 'notice', text: String(error) })
     }
   }
 
@@ -271,10 +271,15 @@ export function activate(context: vscode.ExtensionContext): void {
     if (status === 'ready') {
       // M3b+: 技能目录跨代失效（dsh 重启后 host 目录可能不同；首启空缓存为无害 no-op）。
       skills.invalidate()
-      void ensureWorkspaceForWindow()
+      void ensureWorkspaceForWindow().then(() => {
+        // 首启自动会话：ready 且尚无选中会话时，自动 resolveNewSession + attach，
+        // 让冷启动直接落在一个绑定好的空白会话上（不抢已有会话）。
+        if (provider.selectedSessionId === null) void provider.autoAttachSession()
+      })
     }
     // M6: 面板打开时随状态翻转刷新（ready → Models 页；error → 引导页）。
-    if (provider.settingsOpen) void provider.refreshSettings()
+    // 启动门失败页：终态（error/stopped）也推送面板，供「关于」gate 渲染。
+    if (provider.settingsOpen || status === 'error' || status === 'stopped') void provider.refreshSettings()
   })
 
   if (autoStart) {

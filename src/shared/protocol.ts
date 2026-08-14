@@ -6,7 +6,11 @@
 
 /** Messages the extension sends to the webview. */
 export type ExtensionToWebviewMessage =
-  | { type: 'status'; status: string; detail?: string }
+  // 权威服务生命周期状态（仅 dsh.onStatus / hydrate 上送；驱动启动门与可用性判定）。
+  // 与 `notice`（瞬时操作错误）分离——瞬态 RPC/流级失败不再伪装成终态 error 触发失败门。
+  | { type: 'serviceStatus'; status: string; detail?: string }
+  // 瞬时操作错误通知（RPC/流级失败；只进状态栏 detail，绝不驱动启动门）。
+  | { type: 'notice'; text: string }
   | { type: 'workspace'; workspace: WorkspaceView | null }
   // assistant markdown 渲染（ADR-0004）：工作区真实文件相对路径集（posix），供
   // 行内代码 token 的文件提及判定（settled-only）；超保险丝时为空数组（禁用提及）。
