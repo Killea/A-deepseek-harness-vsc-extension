@@ -23,7 +23,7 @@ import { SettingsService, deriveSettingsYamlPath } from './services/settings-ser
 import { ChatViewProvider } from './webview/chat-view.ts'
 
 export function activate(context: vscode.ExtensionContext): void {
-  const output = vscode.window.createOutputChannel('DeepSeekHarness')
+  const output = vscode.window.createOutputChannel('DeepSeek Harness')
   const log = (line: string): void => output.appendLine(line)
 
   const config = vscode.workspace.getConfiguration('weinibuliu.dsh-vsc')
