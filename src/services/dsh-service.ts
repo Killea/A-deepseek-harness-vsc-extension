@@ -85,11 +85,11 @@ export class DshService extends EventEmitter {
         minimumVersion: this.options.minimumVersion,
         explicitPath: this.explicitPath,
       })
-      this.options.onLog?.(`dsh ${this.launcher.version} @ ${this.launcher.command} (${this.launcher.source})`)
+      this.options.onLog?.(`dsh package: ${this.launcher.version} @ ${this.launcher.command} (${this.launcher.source})`)
 
       this.setStatus('starting')
       this.server = await startDshWeb({ launcher: this.launcher, onStderr: (line) => this.options.onLog?.(`[dsh] ${line}`) })
-      this.options.onLog?.(`dsh web ready: ${this.server.baseUrl}`)
+      this.options.onLog?.(`dsh web service ready: ${this.server.baseUrl}`)
 
       this.validator = await createWireValidator(this.launcher)
       this.wire = new WireClient(this.server.baseUrl, this.validator ?? undefined)

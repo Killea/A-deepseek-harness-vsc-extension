@@ -5,9 +5,9 @@
  * Session lists render the current Workspace's accounted sessions.
  */
 
-import { realpathSync } from 'node:fs'
 import { DshRpcError, type WireClient } from '../dsh/wire.ts'
 import type { SessionSummary, WorkspaceView } from '../shared/protocol.ts'
+import { canonicalPath } from './path-util.ts'
 
 export type { SessionSummary, WorkspaceView }
 
@@ -49,8 +49,8 @@ export class SessionService {
     const client = this.requireClient()
     const list = await client.call<{ items: WorkspaceView[]; archivedSessionIds: string[] }>('workspace.list', {})
     this.archivedSessionIds = list.archivedSessionIds
-    const canonical = canonicalize(folderRoot)
-    const existing = list.items.find((item) => canonicalize(item.path) === canonical)
+    const canonical = canonicalPath(folderRoot)
+    const existing = list.items.find((item) => canonicalPath(item.path) === canonical)
     if (existing) {
       this.workspace = existing
       return existing
@@ -180,11 +180,4 @@ export class SessionService {
   }
 }
 
-/** Best-effort path canonicalization for workspace matching (realpath when possible). */
-function canonicalize(path: string): string {
-  try {
-    return realpathSync(path)
-  } catch {
-    return path
-  }
-}
+

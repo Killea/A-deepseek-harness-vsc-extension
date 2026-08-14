@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext): void {
     minimumVersion,
     explicitPath,
     onStatus: (status: DshStatus, detail?: string) => {
-      log(`status: ${status}${detail ? ` — ${detail}` : ''}`)
+      log(`dsh status: ${status}${detail ? ` — ${detail}` : ''}`)
       provider.post({ type: 'serviceStatus', status, detail })
     },
     onLog: (line) => log(line),

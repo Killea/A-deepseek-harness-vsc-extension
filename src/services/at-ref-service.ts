@@ -13,8 +13,8 @@
  */
 
 import { relative } from 'node:path'
-import { realpathSync } from 'node:fs'
 import { GitignoreMatcher, parseGitignore, normalizePath, type GitignoreRule } from './gitignore.ts'
+import { canonicalPath } from './path-util.ts'
 import type { Severity } from '../shared/protocol.ts'
 
 /** 扩展侧依赖注入面（生产由 extension.ts 以 vscode API 实现）。 */
@@ -249,22 +249,13 @@ function basename(path: string): string {
   return i === -1 ? posix : posix.slice(i + 1)
 }
 
-/** 尽力规范化（realpath 可用时），用于同一路径判定。 */
-function canonical(path: string): string {
-  try {
-    return realpathSync(path)
-  } catch {
-    return path
-  }
-}
-
 function samePath(a: string, b: string): boolean {
-  return toPosix(canonical(a)) === toPosix(canonical(b))
+  return toPosix(canonicalPath(a)) === toPosix(canonicalPath(b))
 }
 
 /** child 是否位于 parent 目录内（含相等）。 */
 function isWithin(parent: string, child: string): boolean {
-  const p = toPosix(canonical(parent)).replace(/\/+$/u, '')
-  const c = toPosix(canonical(child))
+  const p = toPosix(canonicalPath(parent)).replace(/\/+$/u, '')
+  const c = toPosix(canonicalPath(child))
   return c === p || c.startsWith(`${p}/`)
 }
