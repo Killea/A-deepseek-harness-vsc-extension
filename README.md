@@ -7,9 +7,9 @@
 
 <!--  -->
 
-The Project is **Visual Studio Code Extension** provides additional features for Deepseek Harness.
+The Project is **Visual Studio Code Extension** provides additional features for DeepSeek Harness.
 
-本项目是一个为 Deepseek Harness 提供额外能力的 **Visual Studio Code 拓展**。
+本项目是一个为 DeepSeek Harness 提供额外能力的 **Visual Studio Code 拓展**。
 
 ![GitHub License](https://img.shields.io/github/license/weinibuliu/deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/weinibuliu/deepseek-harness-vsc-extension)
 
