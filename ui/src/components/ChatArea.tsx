@@ -211,7 +211,31 @@ function formatGoalTime(time: number): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-/** M3c 上下文注入节点正文（fold 已按 form 预解析；body=null 时显示原文 opaque 兜底）。 */
+/** opaque 兜底：source 字段值渲染（字符串原样，其余 JSON 化）。 */
+function fieldValue(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return JSON.stringify(value)
+}
+
+/** opaque 兜底：剩余 source 字段（去 kind、保留 form——未知 form 只有这里可见）。 */
+function SourceFields({ source }: { source: Record<string, unknown> | null }) {
+  if (source === null) return null
+  const rows = Object.entries(source).filter(([key]) => key !== 'kind')
+  if (rows.length === 0) return null
+  return (
+    <dl className="space-y-0.5">
+      {rows.map(([key, value]) => (
+        <div key={key} className="flex gap-1.5 text-xs">
+          <dt className="shrink-0 font-mono text-badge-foreground">{key}</dt>
+          <dd className="min-w-0 break-all text-description">{fieldValue(value)}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** M3c 上下文注入节点正文（fold 已按 form 预解析；body=null 时显示原文 + 剩余 source 字段 opaque 兜底）。 */
 function ContextBody({
   item,
   onOpenFile,
@@ -221,7 +245,12 @@ function ContextBody({
 }) {
   const body = item.body
   if (body === null) {
-    return <pre className="mt-1 max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">{item.text}</pre>
+    return (
+      <div className="mt-1 space-y-1">
+        <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">{item.text}</pre>
+        <SourceFields source={item.source} />
+      </div>
+    )
   }
   switch (body.form) {
     case 'catalog': {
@@ -285,9 +314,7 @@ function ContextBody({
     case 'relay':
       return (
         <div className="mt-1 space-y-1">
-          {body.senderSessionId !== null ? (
-            <p className="text-[11px] text-description">来自会话 {body.senderSessionId}</p>
-          ) : null}
+          <p className="text-[11px] text-description">来自会话 {body.senderSessionId}</p>
           <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">
             {item.text}
           </pre>
@@ -297,8 +324,16 @@ function ContextBody({
       return (
         <div className="mt-1 space-y-1">
           <ul className="space-y-0.5">
-            {body.references.map((reference) => (
-              <li key={reference} className="truncate font-mono text-xs text-badge-foreground">{reference}</li>
+            {body.references.map((reference, index) => (
+              <li key={index} className="flex items-baseline gap-1.5 text-xs">
+                <span className="truncate font-mono text-badge-foreground">{reference.label}</span>
+                <span className="shrink-0 text-description">
+                  保留 {reference.retained} · 省略 {reference.omitted}
+                </span>
+                {reference.truncated ? (
+                  <span className="shrink-0 text-description">已截断</span>
+                ) : null}
+              </li>
             ))}
           </ul>
           {item.text ? (
@@ -315,7 +350,7 @@ function instructionActionLabel(action: 'set' | 'replace' | 'remove', baseline: 
   return action === 'set' ? '已新增' : '已更新'
 }
 
-/** M3c 上下文注入节点：折叠披露行（角色 + 本地化生产者名，展开看 form 正文）。 */
+/** M3c 上下文注入节点：折叠披露行（角色本地化 + 生产者名原样；notice 的 summary 亦显示在折叠行，展开看 form 正文）。 */
 function ContextRowView({
   item,
   onOpenFile,
@@ -324,7 +359,8 @@ function ContextRowView({
   onOpenFile: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  const title = item.role === 'recall' ? '召回上下文' : '上下文注入'
+  const title = item.role === 'recall' ? '跨会话召回' : '上下文注入'
+  const summary = item.body?.form === 'notice' ? item.body.summary : null
   return (
     <div className="my-1 rounded-xs border border-border-panel p-2">
       <button
@@ -338,6 +374,12 @@ function ContextRowView({
           <>
             <span className="shrink-0 text-description/60" aria-hidden>·</span>
             <span className="min-w-0 truncate">{item.label}</span>
+          </>
+        ) : null}
+        {summary !== null ? (
+          <>
+            <span className="shrink-0 text-description/60" aria-hidden>·</span>
+            <span className="min-w-0 truncate">{summary}</span>
           </>
         ) : null}
         {expanded ? (

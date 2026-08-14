@@ -31,6 +31,7 @@ import type {
   ConversationItem,
   ConversationSnapshot,
   InstructionChangeView,
+  RecalledSessionView,
   SnapshotSectionView,
   ToolFileSummary,
   ToolResultView,
@@ -114,9 +115,6 @@ interface ToolResultData {
 const CONTEXT_FORMS = ['instructions', 'catalog', 'snapshot', 'notice', 'relay', 'recall'] as const
 type ContextFormName = typeof CONTEXT_FORMS[number]
 
-/** runtime-context 快照的生产者插件 id（form=snapshot 的来源）。 */
-const SYSTEM_PROMPT_PLUGIN = '@deepseek-ai/dsh-system-prompt'
-
 /** One streamed block being accumulated for the open assistant item. */
 interface BlockAccum {
   kind: 'text' | 'reasoning'
@@ -193,9 +191,10 @@ function isCompactCheckpoint(source: Record<string, unknown> | null): boolean {
 }
 
 /**
- * 上下文注入节点的 provenance 投影：角色 + 本地化生产者名。
- * 未知生产者按裸 kind 兜底，绝不为 UI 保留生产者名表（merge-extensible，
- * 新生产者无需客户端发版即可识别——对齐参考 contextProvenance）。
+ * 上下文注入节点的 provenance 投影：角色 + 生产者名。
+ * 生产者名从日志原样读，绝不为 UI 维护生产者名表（merge-extensible，
+ * 新生产者/改名/外来日志无需客户端发版即可识别——对齐参考 contextProvenance）；
+ * 缺省回落裸 kind。角色由 webview 本地化。
  */
 function contextProvenance(source: Record<string, unknown> | null): { role: ContextRole; label: string | null } {
   const kind = source === null ? null : readString(source, 'kind')
@@ -204,24 +203,20 @@ function contextProvenance(source: Record<string, unknown> | null): { role: Cont
     // 跨会话材料：角色 recall，label 用被引用会话的标题。
     case 'session-reference': {
       const labels = collect(source, 'references', 'label')
-      return { role: 'recall', label: labels.length > 0 ? labels.join(', ') : '会话引用' }
-    }
-    // 运行时上下文快照：label 用生产插件名（本地化 system-prompt）。
-    case 'plugin': {
-      const plugin = readString(source, 'plugin')
-      return { role: 'inject', label: plugin === SYSTEM_PROMPT_PLUGIN ? '运行时上下文' : plugin ?? kind }
+      return { role: 'recall', label: labels.length > 0 ? labels.join(', ') : kind }
     }
     // 工作区指令：label 用对账文件路径（比插件 id 更能识别生产者）。
     case 'agent-instructions': {
       const paths = collect(source, 'changes', 'path')
-      return { role: 'inject', label: paths.length > 0 ? paths.join(', ') : '工作区指令' }
+      return { role: 'inject', label: paths.length > 0 ? paths.join(', ') : kind }
     }
+    // 插件注入：label 用其日志内 plugin id。
+    case 'plugin':
+      return { role: 'inject', label: readString(source, 'plugin') ?? kind }
     // 用户显式技能调用：label 用技能名。
     case 'skill-invocation':
       return { role: 'inject', label: readString(source, 'name') ?? kind }
-    // 技能目录：本地化。
-    case 'skill-catalog':
-      return { role: 'inject', label: '技能目录' }
+    // 未知生产者按裸 kind 兜底（含 skill-catalog 等 merge-extensible kind）。
     default:
       return { role: 'inject', label: kind }
   }
@@ -285,7 +280,26 @@ function snapshotSections(source: Record<string, unknown>): SnapshotSectionView[
   return sections.length === 0 ? null : sections
 }
 
-/** 按 form 预解析正文；未知/不可读 → null（opaque，webview 显示 text）。 */
+/** recall form：被召回会话列表；all-or-nothing（一条不可读 → 整体 opaque，绝不丢行）。 */
+function recalledSessions(source: Record<string, unknown>): RecalledSessionView[] | null {
+  const list = source['references']
+  if (!Array.isArray(list)) return null
+  const sessions: RecalledSessionView[] = []
+  for (const entry of list) {
+    const reference = asRecord(entry)
+    if (reference === null) return null
+    const label = readString(reference, 'label')
+    const retained = reference['retainedMessages']
+    const omitted = reference['omittedMessages']
+    const truncated = reference['truncated']
+    // 完整性是本卡存在的意义：label 与保留/省略计数、截断标记任一不可读 → opaque。
+    if (label === null || typeof retained !== 'number' || typeof omitted !== 'number' || typeof truncated !== 'boolean') return null
+    sessions.push({ label, retained, omitted, truncated })
+  }
+  return sessions.length === 0 ? null : sessions
+}
+
+/** 按 form 预解析正文；未知/缺字段 → null（opaque，webview 显示 text + 剩余 source 字段）。 */
 function parseContextBody(source: Record<string, unknown>, form: ContextFormName): ContextBodyView | null {
   switch (form) {
     case 'instructions': {
@@ -303,13 +317,19 @@ function parseContextBody(source: Record<string, unknown>, form: ContextFormName
       if (sections === null) return null
       return { form, sections }
     }
-    case 'notice':
-      return { form, summary: readString(source, 'summary') }
-    case 'relay':
-      return { form, senderSessionId: readString(source, 'senderSessionId') }
+    case 'notice': {
+      const summary = readString(source, 'summary')
+      if (summary === null) return null
+      return { form, summary }
+    }
+    case 'relay': {
+      const senderSessionId = readString(source, 'senderSessionId')
+      if (senderSessionId === null) return null
+      return { form, senderSessionId }
+    }
     case 'recall': {
-      const references = collect(source, 'references', 'label')
-      if (references.length === 0) return null
+      const references = recalledSessions(source)
+      if (references === null) return null
       return { form, references }
     }
   }
@@ -580,7 +600,7 @@ export class ConversationFold {
           const { text } = extractContent(data.content ?? [])
           this.items.push({ kind: 'user', text })
         } else {
-          // 上下文注入节点：provenance（角色 + 本地化生产者名）+ form 预解析正文。
+          // 上下文注入节点：provenance（角色 + 生产者名原样）+ form 预解析正文。
           const { text } = extractContent(data.content ?? [])
           const { role, label } = contextProvenance(source)
           const form = contextForm(source)
@@ -590,6 +610,7 @@ export class ConversationFold {
             label,
             text,
             body: form === null ? null : parseContextBody(source, form),
+            source,
           })
         }
         this.revision++

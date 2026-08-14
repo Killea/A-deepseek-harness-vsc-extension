@@ -175,13 +175,16 @@ export type ConversationItem =
   | { kind: 'goal'; commandId: string; text: string; time: number }
   // M3c: 上下文注入节点——所有 source.kind !== 'user' 的 logged user/message
   // （compact 检查点除外，fold 跳过）。role/label/form 与正文数据全部在
-  // fold 解析（webview 纯渲染）；body 为 null = opaque 兜底（未知/不可读 form）。
+  // fold 解析（webview 纯渲染）；body 为 null = opaque 兜底（未知/不可读 form），
+  // 此时 webview 用 source 渲染剩余 source 字段（去 kind、保留 form）。
   | {
       kind: 'context'
       role: ContextRole
       label: string | null
       text: string
       body: ContextBodyView | null
+      /** 原样透传的 source record（opaque 兜底渲染剩余字段用；body 非 null 时不展示）。 */
+      source: Record<string, unknown> | null
     }
   // M3c: 一次 tool 生命周期节点（tool/call 创建、tool/result 原位更新；
   // result 先到则 name/args 为 null，同命令节点 soft-fall 语义）。
@@ -289,14 +292,14 @@ export type ContextRole = 'inject' | 'recall'
 /** fold 认识并预解析的 context form（对齐 dsh-client-runtime KnownContextForm）。 */
 export type ContextFormName = 'instructions' | 'catalog' | 'snapshot' | 'notice' | 'relay' | 'recall'
 
-/** 按 form 预解析的上下文正文数据；form=null（body=null）时 webview 显示 text（opaque 兜底）。 */
+/** 按 form 预解析的上下文正文数据；form 未知或缺字段（body=null）时 webview 显示 text + 剩余 source 字段（opaque 兜底）。 */
 export type ContextBodyView =
   | { form: 'instructions'; baseline: boolean; changes: InstructionChangeView[] }
   | { form: 'catalog'; update: boolean; entries: CatalogEntryView[] }
   | { form: 'snapshot'; sections: SnapshotSectionView[] }
-  | { form: 'notice'; summary: string | null }
-  | { form: 'relay'; senderSessionId: string | null }
-  | { form: 'recall'; references: string[] }
+  | { form: 'notice'; summary: string }
+  | { form: 'relay'; senderSessionId: string }
+  | { form: 'recall'; references: RecalledSessionView[] }
 
 /** instructions form：一条已对账的指令文件变更（source.changes 项）。 */
 export interface InstructionChangeView {
@@ -315,6 +318,14 @@ export interface CatalogEntryView {
 export interface SnapshotSectionView {
   name: string
   text: string
+}
+
+/** recall form：一条被召回会话（source.references 项；label + 保留/省略计数 + 截断标记）。 */
+export interface RecalledSessionView {
+  label: string
+  retained: number
+  omitted: number
+  truncated: boolean
 }
 
 // ---- M3b: @ 引用菜单（替换 M3 的原生 quickpick 呈现，ADR-0001 / D13）----
