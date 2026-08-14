@@ -1,0 +1,58 @@
+# DeepSeek Harness VSCode Extension
+
+> [!NOTE]
+> This is a **COMMUNITY** project. We are trying to make it better.
+>
+> 这是一个**社区**项目。我们正在努力让它变得足够好用。
+
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=weinibuliu.dsh-vsc) | [Github](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
+
+The Project is **Visual Studio Code Extension** provides additional features for  Deepseek Harness.
+
+本项目是一个为 Deepseek Harness 提供额外能力的 **Visual Studio Code 拓展**。
+
+## Start
+
+Extension will try to find `dsh` in PATH. so, you should run:
+
+本拓展将会尝试从 PATH 环境变量中寻找可用的 `dsh` 。因此，你应该通过以下方式安装 dsh 。
+
+```bash
+npm install -g @deepseek-ai/dsh
+```
+
+>[!NOTE]
+> Due to the possibility of breaking changes to DeepSeek Harness, this extension may only run with specific version dsh.
+>
+> 由于 DeepSeek Harness 有可能发生破坏性变更，本拓展或许仅能与特定版本的 dsh 一起正常运行。
+>
+> Test Passed Version: 0.1.0-rc.6
+
+## Features
+- Native File Picker 原生文件选择器
+- Feeling of current focus 当前焦点感知
+- Problems from editor 编辑器问题
+
+## TODO
+
+We are trying to make this project better, including following the dsh and adding new features.
+
+我们正在努力让该插件足够好用，包括跟进 dsh 自身功能与添加新的功能。
+
+### Following
+
+- [ ] Display usage 显示用量
+- [ ] Context usage 显示上下文
+- [ ] Fork session fork 会话
+- [ ] Changes list 产物列表
+- [ ] SubAgents management SubAgent 管理
+- [ ] Plugin management 插件管理
+- [ ] i18n 国际化
+
+### New
+
+- [ ] Real cost time (use timestamp mark action instead of interface timer) 真实花费时间
+
+## License
+
+This project is licensed under **MIT LICENSE**.

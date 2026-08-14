@@ -1,0 +1,948 @@
+/**
+ * ChatViewProvider: the WebviewView fronting the dsh chat (路线 B, §2).
+ * Serves the Vite-built React webview (ui/) with a nonce-based CSP;
+ * wires the postMessage protocol (src/shared/protocol.ts) to the dsh,
+ * session, conversation, at-ref, and command services. M2 scope (§10):
+ * streaming rendering (conversation snapshots folded from mux events +
+ * history replay) and session.cancel interruption. M3b (ADR-0001): the
+ * composer's @/ 悬浮菜单 —— @ 候选（文件 + 问题）由扩展侧枚举上送、选中回投插入
+ * 文本；/ 命令目录（commands/list，契约跟随）+ /model（session.models /
+ * session.selectModel）；命令准入反馈经 commandNotice 直送 composer。
+ */
+
+import * as vscode from 'vscode'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import type {
+  AtCandidatesView,
+  AtRefPayload,
+  ExtensionToWebviewMessage,
+  SessionActivityView,
+  SessionSummary,
+  WebviewToExtensionMessage,
+} from '../shared/protocol.ts'
+import type { SessionService } from '../services/session-service.ts'
+import type { ConversationService } from '../services/conversation-service.ts'
+import type { ProjectionService } from '../services/projection-service.ts'
+import type { AtRefService, AtRefCandidate } from '../services/at-ref-service.ts'
+import type { CommandService } from '../services/command-service.ts'
+import type { SkillService } from '../services/skill-service.ts'
+import type { PendingInteractionService } from '../services/pending-interaction-service.ts'
+import type { SettingsService } from '../services/settings-service.ts'
+import type { DshLauncher } from '../dsh/discovery.ts'
+import { escapeHtml, getNonce, injectCsp, rewriteAssetUrls } from './html.ts'
+import { resolveOpenPath } from './open-file.ts'
+
+/** M6: 面板 location 卡的扩展侧事实来源（由 extension.ts 注入闭包）。 */
+export interface DshFacts {
+  status: string
+  statusDetail?: string
+  launcher: DshLauncher | null
+  settingsYamlPath: string
+  extensionVersion: string
+}
+
+export class ChatViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = 'weinibuliu-dsh-vsc.chat'
+
+  private view: vscode.WebviewView | null = null
+  private pending: ExtensionToWebviewMessage[] = []
+  private _selectedSessionId: string | null = null
+  /** Latest navigation intent accepted from the Webview (last intent wins). */
+  private navigationId = 0
+  /** Lightweight per-session runtime state; full histories remain lazy. */
+  private readonly activities = new Map<string, SessionActivityView>()
+  private readonly lastSessionItems = new Map<string, SessionSummary>()
+  /** In-flight writes are keyed by their explicit session target. */
+  private readonly promptInFlight = new Map<string, { requestId: number; sourceSessionId: string | null; cancelRequested: boolean }>()
+  private readonly modelInFlight = new Set<string>()
+  /** Single-flight resolution for concurrent unbound composer catalog requests. */
+  private unboundSessionResolution: Promise<{ sessionId: string }> | null = null
+  /** M6: 设置面板当前是否打开（status 翻转时按需刷新面板视图）。 */
+  private _settingsOpen = false
+
+  /** 当前选中会话（extension.ts 的 commands/change 失效重拉用）。 */
+  get selectedSessionId(): string | null {
+    return this._selectedSessionId
+  }
+
+  /** M6: 设置面板是否打开（extension.ts status 监听按此推送面板刷新）。 */
+  get settingsOpen(): boolean {
+    return this._settingsOpen
+  }
+
+  constructor(
+    private readonly sessions: SessionService,
+    private readonly conversations: ConversationService,
+    private readonly projections: ProjectionService,
+    private readonly atRef: AtRefService,
+    private readonly commands: CommandService,
+    private readonly skills: SkillService,
+    private readonly pendingInteractions: PendingInteractionService,
+    private readonly settings: SettingsService,
+    private readonly dshFacts: () => DshFacts,
+    private readonly pickDshPath: () => Promise<void>,
+    private readonly restartDsh: () => Promise<void>,
+    private readonly extensionUri: vscode.Uri,
+  ) {
+    // Streaming/replay updates: push a fresh snapshot whenever the selected
+    // session's fold changes (chunk deltas, turn boundaries, replay resync).
+    conversations.on('change', (sessionId: string) => {
+      if (sessionId !== this.selectedSessionId) return
+      const snapshot = this.conversations.snapshot(sessionId)
+      if (snapshot) this.post({ type: 'conversation', sessionId, snapshot })
+    })
+    // Pending is session-owned: update the owning slot even while another
+    // session is selected so the list badge and later hydration stay fresh.
+    pendingInteractions.on('change', (sessionId: string) => {
+      const items = this.pendingInteractions.snapshot(sessionId)
+      this.post({ type: 'pending', sessionId, items })
+      this.updateActivity(sessionId, { pending: items.length > 0 })
+    })
+    // M4b: todos projection change (selected session only; key-filtered so
+    // future non-todos projections do not re-post the plan strip).
+    projections.on('change', (sessionId: string, key: string) => {
+      if (key !== 'todos' || sessionId !== this.selectedSessionId) return
+      this.postTodos(sessionId)
+    })
+  }
+
+  resolveWebviewView(webviewView: vscode.WebviewView): void {
+    this.view = webviewView
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'webview')],
+    }
+    webviewView.webview.html = this.renderHtml(webviewView.webview)
+
+    webviewView.webview.onDidReceiveMessage((message: WebviewToExtensionMessage) => {
+      void this.handleMessage(message)
+    })
+
+    // Flush state captured while the view was hidden.
+    for (const msg of this.pending) this.post(msg)
+    this.pending = []
+  }
+
+  /** Broadcast a message to the view, queueing when it is not visible yet. */
+  post(message: ExtensionToWebviewMessage): void {
+    if (!this.view) {
+      this.pending.push(message)
+      return
+    }
+    void this.view.webview.postMessage(message)
+  }
+
+  async handleMessage(message: WebviewToExtensionMessage): Promise<void> {
+    switch (message.type) {
+      case 'ready':
+        // webview 只渲染：加载/重连后从扩展侧权威状态整量重水合。
+        await this.hydrate()
+        break
+      case 'newSession': {
+        try {
+          const navigationId = message.navigationId ?? this.navigationId + 1
+          if (navigationId < this.navigationId) return
+          this.navigationId = navigationId
+          const { sessionId } = await this.sessions.resolveNewSession(message.occupiedBlankSessionIds ?? [])
+          if (navigationId !== this.navigationId) {
+            await this.refreshSessions()
+            return
+          }
+          this._selectedSessionId = sessionId
+          this.post({ type: 'selectedSession', sessionId, navigationId })
+          await this.loadConversation(sessionId) // attach so live frames fold in
+          this.verifyBaseline(sessionId)
+          await this.refreshSessions()
+          await this.refreshComposerCatalogs(sessionId)
+        } catch (error) {
+          this.post({ type: 'status', status: 'error', detail: String(error) })
+        }
+        break
+      }
+      case 'selectSession':
+        if (message.navigationId < this.navigationId) return
+        this.navigationId = message.navigationId
+        this._selectedSessionId = message.sessionId
+        this.post({ type: 'selectedSession', sessionId: message.sessionId, navigationId: message.navigationId })
+        await this.loadConversation(message.sessionId)
+        this.verifyBaseline(message.sessionId)
+        // Blank-session visibility is keyed to the selection: switching
+        // selection re-filters the list (a deselected blank hides, the newly
+        // selected blank stays visible as the provisional row).
+        await this.refreshSessions()
+        // M4: 切会话时同步推送该会话的 pending 快照（pending 只随帧变更，切会话需补发）。
+        this.post({ type: 'pending', sessionId: message.sessionId, items: this.pendingInteractions.snapshot(message.sessionId) })
+        // M3b: / 命令目录随会话切换重拉（agent-backed，commands/change 亦失效）。
+        await this.refreshComposerCatalogs(message.sessionId, message.navigationId)
+        break
+      case 'atOpen':
+        await this.serveAtCandidates(message.sessionId, message.requestId)
+        break
+      case 'atResolve':
+        await this.serveAtResolve(message.sessionId, message.requestId, message.ref)
+        break
+      case 'commandOpen':
+        try {
+          const sessionId = await this.resolveComposerSession(message.sessionId, message.occupiedBlankSessionIds)
+          await this.refreshComposerCatalogs(sessionId, message.requestId, message.sessionId)
+        } catch (error) {
+          this.post({ type: 'commandNotice', sessionId: message.sessionId, level: 'error', text: String(error) })
+        }
+        break
+      case 'commandExecute':
+        await this.serveCommandExecute(
+          message.sessionId,
+          message.requestId,
+          message.line,
+          message.occupiedBlankSessionIds,
+        )
+        break
+      case 'modelOpen':
+        try {
+          const sessionId = await this.resolveComposerSession(message.sessionId, message.occupiedBlankSessionIds)
+          await this.refreshModels(sessionId, message.requestId, message.sessionId)
+        } catch (error) {
+          this.post({ type: 'commandNotice', sessionId: message.sessionId, level: 'error', text: String(error) })
+        }
+        break
+      case 'modelSelect':
+        await this.serveModelSelect(
+          message.sessionId,
+          message.requestId,
+          message.provider,
+          message.model,
+          message.effort,
+          message.occupiedBlankSessionIds,
+        )
+        break
+      case 'pendingAnswer':
+        await this.servePendingAnswer(message.sessionId, message.key, message.answer)
+        break
+      case 'pendingCancel':
+        await this.servePendingCancel(message.sessionId, message.key)
+        break
+      case 'send': {
+        const text = message.text.trim()
+        if (!text) return
+        const sourceSessionId = message.sessionId
+        let sessionId = sourceSessionId
+        if (!sessionId) {
+          try {
+            sessionId = (await this.sessions.resolveNewSession(message.occupiedBlankSessionIds ?? [])).sessionId
+            // An unbound send selects the created session only if no newer
+            // navigation intent superseded it while creation was in flight.
+            this._selectedSessionId = sessionId
+            this.post({ type: 'selectedSession', sessionId })
+            await this.loadConversation(sessionId) // attach so live frames fold in
+            this.verifyBaseline(sessionId)
+            await this.refreshSessions()
+            await this.refreshComposerCatalogs(sessionId)
+          } catch (error) {
+            this.post({
+              type: 'composerOperation', sourceSessionId, sessionId: null, requestId: message.requestId,
+              operation: 'send', status: 'failed', text: String(error),
+            })
+            return
+          }
+        }
+        if (this.promptInFlight.has(sessionId)) {
+          this.post({
+            type: 'composerOperation', sourceSessionId, sessionId, requestId: message.requestId,
+            operation: 'send', status: 'failed', text: '该会话已有 prompt 正在提交',
+          })
+          return
+        }
+        const operation = { requestId: message.requestId, sourceSessionId, cancelRequested: false }
+        this.promptInFlight.set(sessionId, operation)
+        try {
+          // User text is rendered from the wire user/message event (single
+          // source of truth); nothing optimistic is echoed. The prompt's
+          // command slot (a future dsh dispatching a slash command inside a
+          // prompt) surfaces as an immediate composer notice.
+          const result = await this.sessions.prompt(sessionId, text)
+          this.post({
+            type: 'composerOperation', sourceSessionId, sessionId, requestId: message.requestId,
+            operation: 'send', status: 'accepted',
+          })
+          if (result.command) {
+            this.post({ type: 'commandNotice', sessionId, level: 'info', text: result.command.text ?? '命令已执行' })
+          }
+          if (operation.cancelRequested) await this.sessions.cancel(sessionId)
+        } catch (error) {
+          this.post({
+            type: 'composerOperation', sourceSessionId, sessionId, requestId: message.requestId,
+            operation: 'send', status: 'failed', text: String(error),
+          })
+        } finally {
+          this.promptInFlight.delete(sessionId)
+          await this.refreshSessions()
+        }
+        break
+      }
+      case 'cancel': {
+        const sessionId = message.sessionId
+        const submitting = this.promptInFlight.get(sessionId)
+        if (submitting) submitting.cancelRequested = true
+        try {
+          await this.sessions.cancel(sessionId)
+        } catch (error) {
+          // A cancel may race the prompt acceptance. The send path retries
+          // after acceptance when cancelRequested is set.
+          if (!submitting) this.post({ type: 'commandNotice', sessionId, level: 'error', text: String(error) })
+        }
+        break
+      }
+      case 'refresh':
+        await this.refreshSessions()
+        break
+      case 'archiveSession': {
+        if (this.isSessionActive(message.sessionId)) {
+          this.post({ type: 'commandNotice', sessionId: message.sessionId, level: 'error', text: '活动会话不能归档' })
+          return
+        }
+        try {
+          await this.sessions.archiveSession(message.sessionId)
+          this.post({ type: 'sessionArchived', sessionId: message.sessionId })
+          if (this._selectedSessionId === message.sessionId) {
+            this._selectedSessionId = null
+            this.post({ type: 'selectedSession', sessionId: null })
+          }
+          await this.refreshSessions()
+        } catch (error) {
+          this.post({ type: 'status', status: 'error', detail: String(error) })
+        }
+        break
+      }
+      case 'renameSession':
+        await this.renameSession(message.sessionId, message.currentTitle)
+        break
+      // M6: 设置面板。
+      case 'settingsOpen':
+        this._settingsOpen = true
+        await this.refreshSettings()
+        break
+      case 'settingsRefresh':
+        await this.refreshSettings()
+        break
+      case 'settingsApplyProfile':
+        await this.serveApplyProfile(message.id, message.profile)
+        break
+      case 'settingsRemoveProvider':
+        await this.serveRemoveProvider(message.id, message.target)
+        break
+      case 'settingsDeclareProvider':
+        await this.serveDeclareProvider(message.id, message.create)
+        break
+      case 'settingsDiscoverModels':
+        await this.serveDiscoverModels(message.id, message.probe)
+        break
+      case 'settingsPickDshPath':
+        await this.pickDshPath()
+        break
+      case 'settingsRestartDsh':
+        await this.restartDsh()
+        break
+      case 'openSettingsYaml':
+        await this.serveOpenSettingsYaml()
+        break
+      case 'openInBrowser':
+        void vscode.commands.executeCommand('weinibuliu.dsh-vsc.openInBrowser')
+        break
+      case 'openExternalUrl':
+        void vscode.env.openExternal(vscode.Uri.parse(message.url))
+        break
+      case 'openFile':
+        await this.serveOpenFile(message.path)
+        break
+    }
+  }
+
+  /**
+   * Bind a session-backed composer operation. The unbound draft keeps its
+   * null address in the Webview; only the extension resolves a hidden blank
+   * session for RPCs whose dsh contract requires an agent/session id.
+   */
+  private async resolveComposerSession(
+    sourceSessionId: string | null,
+    occupiedBlankSessionIds: readonly string[] = [],
+  ): Promise<string> {
+    if (sourceSessionId !== null) return sourceSessionId
+    const flight = this.unboundSessionResolution
+      ?? this.sessions.resolveNewSession(occupiedBlankSessionIds)
+    this.unboundSessionResolution = flight
+    try {
+      return (await flight).sessionId
+    } finally {
+      if (this.unboundSessionResolution === flight) this.unboundSessionResolution = null
+    }
+  }
+
+  /** Reload the workspace info and session list into the view. */
+  async refreshSessions(): Promise<void> {
+    const workspace = this.sessions.currentWorkspace
+    this.post({ type: 'workspace', workspace })
+    if (!workspace) return
+    const visible = await this.sessions.listSessions(this._selectedSessionId)
+    for (const item of visible) {
+      this.lastSessionItems.set(item.sessionId, item)
+      const current = this.activities.get(item.sessionId)
+      this.activities.set(item.sessionId, {
+        running: item.running,
+        pending: this.pendingInteractions.snapshot(item.sessionId).length > 0,
+        ...(current?.ended === undefined ? {} : { ended: current.ended }),
+        ...(current?.failedSeq === undefined ? {} : { failedSeq: current.failedSeq }),
+        ...(current?.archivedActive === undefined ? {} : { archivedActive: current.archivedActive }),
+      })
+    }
+    const items = [...visible]
+    for (const [sessionId, activity] of this.activities) {
+      if (!activity.archivedActive || items.some((item) => item.sessionId === sessionId)) continue
+      const cached = this.lastSessionItems.get(sessionId)
+      if (cached) items.push(cached)
+    }
+    this.post({ type: 'sessions', items })
+    for (const item of items) this.postActivity(item.sessionId)
+  }
+
+  /**
+   * Reconcile selection + list after the archive set changed via a host frame
+   * (another tab archived a session): an archived current selection clears
+   * into the empty state, then the list re-filters.
+   */
+  async reconcileArchiveSet(): Promise<void> {
+    for (const sessionId of this.sessions.archived) {
+      if (this.isSessionActive(sessionId)) {
+        this.updateActivity(sessionId, { archivedActive: true })
+      } else {
+        this.activities.delete(sessionId)
+        this.post({ type: 'sessionArchived', sessionId })
+        if (this._selectedSessionId === sessionId) {
+          this._selectedSessionId = null
+          this.post({ type: 'selectedSession', sessionId: null })
+        }
+      }
+    }
+    await this.refreshSessions()
+  }
+
+  /**
+   * webview 只渲染：加载/重连后从扩展侧权威状态整量重水合。工作区与会话列表
+   * 走 refreshSessions；选中态、对话、pending、todo、命令目录以 _selectedSessionId
+   * 为唯一裁决重新上送——webview 不保存任何会裁决目标会话的状态。
+   */
+  async hydrate(): Promise<void> {
+    const facts = this.dshFacts()
+    this.post({ type: 'status', status: facts.status, ...(facts.statusDetail === undefined ? {} : { detail: facts.statusDetail }) })
+    await this.refreshSessions()
+    const sessionId = this._selectedSessionId
+    if (!sessionId) return
+    this.post({ type: 'selectedSession', sessionId })
+    const snapshot = this.conversations.snapshot(sessionId)
+    if (snapshot) {
+      this.post({ type: 'conversation', sessionId, snapshot })
+    } else {
+      await this.loadConversation(sessionId)
+    }
+    this.post({ type: 'pending', sessionId, items: this.pendingInteractions.snapshot(sessionId) })
+    this.postTodos(sessionId)
+    await this.refreshComposerCatalogs(sessionId)
+  }
+
+  /** 会话重命名：原生输入框预填当前标题，确认后走 session.rename 并刷新列表。 */
+  private async renameSession(sessionId: string, currentTitle: string | null): Promise<void> {
+    const input = await vscode.window.showInputBox({
+      prompt: '重命名会话',
+      value: currentTitle ?? '',
+      validateInput: (value) => (value.trim().length === 0 ? '标题不能为空' : undefined),
+    })
+    if (input === undefined) return // 用户取消
+    try {
+      await this.sessions.renameSession(sessionId, input.trim())
+      await this.refreshSessions()
+    } catch (error) {
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+    }
+  }
+
+  /** M3: 会话 cwd 基准核验（fire-and-forget；失败仅记录，不打断交互）。 */
+  private verifyBaseline(sessionId: string | null): void {
+    this.atRef.verifyBaseline(sessionId).catch((error: unknown) => {
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+    })
+  }
+
+  /** Replay the session's history into the conversation fold and push it. */
+  private async loadConversation(sessionId: string): Promise<void> {
+    try {
+      const snapshot = await this.conversations.attach(sessionId)
+      if (this._selectedSessionId !== sessionId) return // user switched away meanwhile
+      this.post({ type: 'conversation', sessionId, snapshot })
+      // M4b: attach 已同步 seed 投影 store（决策 9 回调），补发 todo 计划条快照。
+      this.postTodos(sessionId)
+    } catch (error) {
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+    }
+  }
+
+  /** M4b: 上送当前会话的 todos 投影（null = 无计划/能力缺席 → strip 隐藏）。 */
+  private postTodos(sessionId: string): void {
+    this.post({ type: 'todos', sessionId, todos: this.projections.todosOf(sessionId) })
+  }
+
+  /** M3b: / 命令目录快照（契约跟随；available=false 时 webview 不呼出 / 菜单）。
+   *  瞬时失败只报状态栏错误、不推 available:false（避免 / 菜单误关与闪烁）。 */
+  async refreshCommands(
+    sessionId: string,
+    requestId = 0,
+    responseSessionId: string | null = sessionId,
+  ): Promise<void> {
+    try {
+      if (!(await this.commands.commandsAvailable(sessionId))) {
+        this.post({ type: 'commands', sessionId: responseSessionId, requestId, snapshot: { available: false, items: [] } })
+        return
+      }
+      const items = await this.commands.list(sessionId)
+      this.post({ type: 'commands', sessionId: responseSessionId, requestId, snapshot: { available: true, items } })
+    } catch (error) {
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+    }
+  }
+
+  /** M3b+: / 菜单技能目录快照（skill.list；纯附加——available=false 或失败 → 技能为空、
+   *  菜单仍显命令 + /model，绝不关闭菜单、绝不改写 commands 门槛）。 */
+  async refreshSkills(
+    sessionId: string,
+    requestId = 0,
+    responseSessionId: string | null = sessionId,
+  ): Promise<void> {
+    try {
+      if (!(await this.skills.skillsAvailable(sessionId))) {
+        this.post({ type: 'skills', sessionId: responseSessionId, requestId, snapshot: { available: false, items: [] } })
+        return
+      }
+      const items = await this.skills.list(sessionId)
+      this.post({ type: 'skills', sessionId: responseSessionId, requestId, snapshot: { available: true, items } })
+    } catch (error) {
+      // 技能拉取失败：静默降级为空技能（命令照常），错误进状态栏。
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'skills', sessionId: responseSessionId, requestId, snapshot: { available: false, items: [] } })
+    }
+  }
+
+  /** M3b+: 刷新 / 菜单两条目录（命令 + 技能）+ 模型目录；会话切换/新建/重水合/菜单打开共用。 */
+  private async refreshComposerCatalogs(
+    sessionId: string,
+    requestId = 0,
+    responseSessionId: string | null = sessionId,
+  ): Promise<void> {
+    await Promise.all([
+      this.refreshCommands(sessionId, requestId, responseSessionId),
+      this.refreshSkills(sessionId, requestId, responseSessionId),
+      this.refreshModels(sessionId, requestId, responseSessionId),
+    ])
+  }
+
+  /** M3b: @ 菜单打开 → 一次性枚举文件 + 问题候选上送（菜单重开即新）。 */
+  private async serveAtCandidates(sessionId: string | null, requestId: number): Promise<void> {
+    try {
+      const files = await this.atRef.listCandidates()
+      const problems = this.atRef.listProblemCandidates()
+      const candidates: AtCandidatesView = {
+        files: files.map((f) => ({
+          absolutePath: f.absolutePath,
+          relativePath: f.relativePath,
+          pinned: f.pinned,
+          dirty: f.dirty,
+        })),
+        problems,
+      }
+      this.post({ type: 'atCandidates', sessionId, requestId, candidates })
+    } catch (error) {
+      // 枚举失败：上送空候选（菜单落到空态，不再挂加载），状态栏展示真实错误。
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({ type: 'atCandidates', sessionId, requestId, candidates: { files: [], problems: [] } })
+    }
+  }
+
+  /** M3b: @ 菜单选中 → 扩展侧构造插入文本（文件走基准计算、问题走内联 @problem）。 */
+  private async serveAtResolve(sessionId: string | null, requestId: number, ref: AtRefPayload): Promise<void> {
+    try {
+      if (ref.kind === 'file') {
+        const candidate: AtRefCandidate = {
+          absolutePath: ref.absolutePath,
+          relativePath: '',
+          pinned: false,
+          dirty: false,
+        }
+        const result = await this.atRef.buildReference(candidate, sessionId)
+        this.post({ type: 'atResult', sessionId, requestId, insert: `@${result.path}` })
+        return
+      }
+      const insert = this.atRef.buildProblemReference({
+        path: ref.path,
+        line: ref.line,
+        column: ref.column,
+        severity: ref.severity,
+        message: ref.message,
+      })
+      this.post({ type: 'atResult', sessionId, requestId, insert })
+    } catch (error) {
+      this.post({ type: 'commandNotice', sessionId, level: 'error', text: String(error) })
+    }
+  }
+
+  /** M3b: 执行一条 / 命令（准入式：未命中/传输失败经 commandNotice 直送 composer，不进对话流）。
+   *  已进入 handler 的失败由 command/done 折叠为命令节点，此处不回显（对齐 dsh）。 */
+  private async serveCommandExecute(
+    sourceSessionId: string | null,
+    requestId: number,
+    line: string,
+    occupiedBlankSessionIds: readonly string[] = [],
+  ): Promise<void> {
+    let sessionId: string | null = sourceSessionId
+    try {
+      sessionId = await this.resolveComposerSession(sourceSessionId, occupiedBlankSessionIds)
+      const result = await this.commands.execute(sessionId, line)
+      if (result === null) {
+        this.post({ type: 'commandNotice', sessionId: sourceSessionId, level: 'error', text: `未知或格式错误的命令：${line}` })
+        this.post({
+          type: 'composerOperation', sourceSessionId, sessionId, requestId,
+          operation: 'command', status: 'failed', text: `未知或格式错误的命令：${line}`,
+        })
+      } else {
+        if (sourceSessionId === null) {
+          // A successful command turns the hidden blank context into the
+          // visible owning session. Replay covers command events that raced
+          // before selection/attachment.
+          this._selectedSessionId = sessionId
+          this.post({ type: 'selectedSession', sessionId })
+          await this.loadConversation(sessionId)
+          this.verifyBaseline(sessionId)
+          await this.refreshSessions()
+          await this.refreshComposerCatalogs(sessionId)
+        }
+        this.post({
+          type: 'composerOperation', sourceSessionId, sessionId, requestId,
+          operation: 'command', status: 'accepted',
+        })
+      }
+    } catch (error) {
+      this.post({ type: 'commandNotice', sessionId: sourceSessionId, level: 'error', text: String(error) })
+      this.post({
+        type: 'composerOperation', sourceSessionId, sessionId, requestId,
+        operation: 'command', status: 'failed', text: String(error),
+      })
+    }
+  }
+
+  /** M3b: /model 选中 → session.selectModel；结果经 commandNotice 反馈。
+   *  成功后重拉目录，使 /model 弹层与输入框下方席位的 current 标签同步到新选择。 */
+  private async serveModelSelect(
+    sourceSessionId: string | null,
+    requestId: number,
+    provider: string,
+    model: string,
+    effort?: string,
+    occupiedBlankSessionIds: readonly string[] = [],
+  ): Promise<void> {
+    let sessionId: string
+    try {
+      sessionId = await this.resolveComposerSession(sourceSessionId, occupiedBlankSessionIds)
+    } catch (error) {
+      this.post({ type: 'commandNotice', sessionId: sourceSessionId, level: 'error', text: String(error) })
+      this.post({
+        type: 'composerOperation', sourceSessionId, sessionId: null, requestId,
+        operation: 'model', status: 'failed', text: String(error),
+      })
+      return
+    }
+    if (this.modelInFlight.has(sessionId)) return
+    this.modelInFlight.add(sessionId)
+    try {
+      await this.commands.selectModel(sessionId, provider, model, effort)
+      await this.refreshModels(sessionId, requestId, sourceSessionId)
+      this.post({ type: 'commandNotice', sessionId: sourceSessionId, level: 'info', text: `已选择模型 ${provider}/${model}` })
+      this.post({
+        type: 'composerOperation', sourceSessionId, sessionId, requestId,
+        operation: 'model', status: 'accepted',
+      })
+    } catch (error) {
+      this.post({ type: 'commandNotice', sessionId: sourceSessionId, level: 'error', text: String(error) })
+      this.post({
+        type: 'composerOperation', sourceSessionId, sessionId, requestId,
+        operation: 'model', status: 'failed', text: String(error),
+      })
+    } finally {
+      this.modelInFlight.delete(sessionId)
+    }
+  }
+
+  /** M3b+: 刷新模型目录（/model 弹层 + 输入框下方席位共享）；失败上送带 error 的空视图。 */
+  private async refreshModels(
+    sessionId: string,
+    requestId = 0,
+    responseSessionId: string | null = sessionId,
+  ): Promise<void> {
+    try {
+      const models = await this.commands.models(sessionId)
+      this.post({ type: 'models', sessionId: responseSessionId, requestId, models })
+    } catch (error) {
+      this.post({ type: 'status', status: 'error', detail: String(error) })
+      this.post({
+        type: 'models', sessionId: responseSessionId, requestId,
+        models: { current: null, routable: null, groups: [], failures: [], error: String(error) },
+      })
+    }
+  }
+
+  /** M4: 应答一个 pending 交互（approval 结局 / question 答案批）。
+   *  respond 失败（not-pending/bad-response/传输）经 pendingError 卡片内联展示，
+   *  卡片去留由 resolved 帧决定（本方法不清除 pending）。 */
+  private async servePendingAnswer(
+    sessionId: string,
+    key: string,
+    answer: Parameters<PendingInteractionService['answer']>[2],
+  ): Promise<void> {
+    try {
+      const receipt = await this.pendingInteractions.answer(sessionId, key, answer)
+      if (!receipt.accepted) {
+        this.post({ type: 'pendingError', sessionId, key, text: `应答未受理：${receipt.reason}` })
+      }
+    } catch (error) {
+      this.post({ type: 'pendingError', sessionId, key, text: String(error) })
+    }
+  }
+
+  /** M4: 取消一个 pending 问询（= cancelled 错误；approval 无此出口）。 */
+  private async servePendingCancel(sessionId: string, key: string): Promise<void> {
+    try {
+      const receipt = await this.pendingInteractions.cancel(sessionId, key)
+      if (!receipt.accepted) {
+        this.post({ type: 'pendingError', sessionId, key, text: `取消未受理：${receipt.reason}` })
+      }
+    } catch (error) {
+      this.post({ type: 'pendingError', sessionId, key, text: String(error) })
+    }
+  }
+
+  /** M4: host/agent-error → 对话流注记（选中会话时立即推送快照）。 */
+  pushAgentError(sessionId: string, message: string): void {
+    this.conversations.applyAgentError(sessionId, message)
+    const current = this.activities.get(sessionId)
+    this.updateActivity(sessionId, { failedSeq: (current?.failedSeq ?? -1) + 1 })
+    if (sessionId !== this.selectedSessionId) return
+    const snapshot = this.conversations.snapshot(sessionId)
+    if (snapshot) this.post({ type: 'conversation', sessionId, snapshot })
+  }
+
+  /** Consume one mux frame into the lightweight Workspace activity index. */
+  applyMuxFrame(frame: { payload: unknown }): void {
+    const payload = frame.payload as {
+      type?: string
+      sessionId?: string
+      event?: { type?: string; seq?: number; data?: { reason?: { kind?: string } } }
+    }
+    if (payload.type !== 'session/event' || typeof payload.sessionId !== 'string' || !payload.event) return
+    const event = payload.event
+    if (event.type === 'turn/start') {
+      this.updateActivity(payload.sessionId, { running: true })
+      return
+    }
+    if (event.type !== 'turn/end') return
+    const seq = typeof event.seq === 'number' ? event.seq : 0
+    const kind = event.data?.reason?.kind
+    if (kind === 'error') {
+      this.updateActivity(payload.sessionId, { running: false, failedSeq: seq })
+    } else if (kind === 'aborted') {
+      this.updateActivity(payload.sessionId, { running: false, ended: { seq, kind: 'aborted' } })
+    } else {
+      this.updateActivity(payload.sessionId, { running: false, ended: { seq, kind: 'completed' } })
+    }
+    const activity = this.activities.get(payload.sessionId)
+    if (activity?.archivedActive && !this.isSessionActive(payload.sessionId)) {
+      this.activities.delete(payload.sessionId)
+      this.post({ type: 'sessionArchived', sessionId: payload.sessionId })
+      if (this._selectedSessionId === payload.sessionId) {
+        this._selectedSessionId = null
+        this.post({ type: 'selectedSession', sessionId: null })
+      }
+      void this.refreshSessions()
+    }
+  }
+
+  private isSessionActive(sessionId: string): boolean {
+    const activity = this.activities.get(sessionId)
+    return activity?.running === true
+      || activity?.pending === true
+      || this.promptInFlight.has(sessionId)
+      || this.modelInFlight.has(sessionId)
+  }
+
+  private updateActivity(sessionId: string, patch: Partial<SessionActivityView>): void {
+    const current = this.activities.get(sessionId) ?? { running: false, pending: false }
+    const next = { ...current, ...patch }
+    this.activities.set(sessionId, next)
+    this.post({ type: 'sessionActivity', sessionId, activity: next })
+  }
+
+  private postActivity(sessionId: string): void {
+    const activity = this.activities.get(sessionId)
+    if (activity) this.post({ type: 'sessionActivity', sessionId, activity })
+  }
+
+  /** M6: 组装并推送设置面板整页视图（location 事实 + join 数据）。 */
+  async refreshSettings(): Promise<void> {
+    const facts = this.dshFacts()
+    const location = facts.launcher
+      ? { found: true as const, command: facts.launcher.command, source: facts.launcher.source, version: facts.launcher.version ?? '' }
+      : { found: false as const }
+    try {
+      const data = await this.settings.loadPanel()
+      this.post({
+        type: 'settings',
+        panel: {
+          ...data,
+          status: facts.status,
+          ...facts.statusDetail === undefined ? {} : { statusDetail: facts.statusDetail },
+          location,
+          settingsYamlPath: facts.settingsYamlPath,
+          extensionVersion: facts.extensionVersion,
+        },
+      })
+    } catch (error) {
+      // describe/join 失败（服务不可用等）：仍推送 location 事实 + loadError，
+      // webview 据此落引导页并展示失败详情。
+      this.post({
+        type: 'settings',
+        panel: {
+          status: facts.status,
+          ...facts.statusDetail === undefined ? {} : { statusDetail: facts.statusDetail },
+          location,
+          settingsYamlPath: facts.settingsYamlPath,
+          extensionVersion: facts.extensionVersion,
+          hasDocument: false,
+          writable: false,
+          loadError: String(error),
+          rows: [],
+          namespaces: {},
+          credentials: {},
+          protocols: [],
+        },
+      })
+    }
+  }
+
+  /** M6: 应用一次 provider 编辑；成功后回执 ok 并刷新面板。 */
+  private async serveApplyProfile(id: number, profile: Parameters<SettingsService['applyProfile']>[0]): Promise<void> {
+    try {
+      const result = await this.settings.applyProfile(profile)
+      if (!result.ok) {
+        this.post({ type: 'settingsReply', id, ok: false, text: result.text, ...result.conflict === true ? { conflict: true } : {} })
+        if (result.conflict === true) void this.refreshSettings()
+        return
+      }
+      this.post({ type: 'settingsReply', id, ok: true })
+      void this.refreshSettings()
+    } catch (error) {
+      this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
+    }
+  }
+
+  /** M6: 删除 provider（凭据先于设置，幂等可重试）。 */
+  private async serveRemoveProvider(id: number, target: Parameters<SettingsService['removeProvider']>[0]): Promise<void> {
+    try {
+      const result = await this.settings.removeProvider(target)
+      if (!result.ok) {
+        this.post({ type: 'settingsReply', id, ok: false, text: result.text })
+        return
+      }
+      this.post({ type: 'settingsReply', id, ok: true })
+      void this.refreshSettings()
+    } catch (error) {
+      this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
+    }
+  }
+
+  /** M6: 自定义声明 pi-ai provider。 */
+  private async serveDeclareProvider(id: number, create: Parameters<SettingsService['declareProvider']>[0]): Promise<void> {
+    try {
+      const result = await this.settings.declareProvider(create)
+      if (!result.ok) {
+        this.post({ type: 'settingsReply', id, ok: false, text: result.text, ...result.conflict === true ? { conflict: true } : {} })
+        if (result.conflict === true) void this.refreshSettings()
+        return
+      }
+      this.post({ type: 'settingsReply', id, ok: true })
+      void this.refreshSettings()
+    } catch (error) {
+      this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
+    }
+  }
+
+  /** M6: 询问 provider 端点可提供的模型（应答带 value）。 */
+  private async serveDiscoverModels(id: number, probe: Parameters<SettingsService['discoverModels']>[0]): Promise<void> {
+    try {
+      const models = await this.settings.discoverModels(probe)
+      this.post({ type: 'settingsReply', id, ok: true, value: models })
+    } catch (error) {
+      this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
+    }
+  }
+
+  /**
+   * M6: 在当前 VS Code 窗口打开 settings.yaml（推导路径，非 dsh wire 的
+   * settings.openDocument —— 那个会交给操作系统默认编辑器、另开窗口）。
+   * 文件不存在时 showTextDocument 打开绑定该路径的空 buffer，保存即写入。
+   */
+  private async serveOpenSettingsYaml(): Promise<void> {
+    try {
+      const uri = vscode.Uri.file(this.dshFacts().settingsYamlPath)
+      await vscode.window.showTextDocument(uri)
+    } catch (error) {
+      void vscode.window.showErrorMessage(`打开 settings.yaml 失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * M5b: 对话流文件链接点击 → 在当前 VS Code 窗口打开对应文件（相对路径以工作区
+   * 根为锚）。文件不存在时 showTextDocument 打开绑定该路径的空 buffer，保存即写入
+   * （对齐 serveOpenSettingsYaml）。
+   */
+  private async serveOpenFile(path: string): Promise<void> {
+    try {
+      const uri = vscode.Uri.file(resolveOpenPath(path, this.sessions.currentWorkspace?.path ?? null))
+      await vscode.window.showTextDocument(uri)
+    } catch (error) {
+      void vscode.window.showErrorMessage(`打开文件失败: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private renderHtml(webview: vscode.Webview): string {
+    const webviewRoot = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', 'webview'),
+    )
+    const indexPath = join(
+      this.extensionUri.fsPath,
+      'dist',
+      'media',
+      'webview',
+      'index.html',
+    )
+    let html: string
+    try {
+      html = readFileSync(indexPath, 'utf8')
+    } catch {
+      return this.errorHtml('webview 未构建：请先运行 pnpm run build')
+    }
+    const nonce = getNonce()
+    return injectCsp(rewriteAssetUrls(html, `${webviewRoot}`), nonce, webview.cspSource)
+  }
+
+  private errorHtml(message: string): string {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8">`
+      + `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">`
+      + `</head><body style="padding:12px;font-family:var(--vscode-font-family);color:var(--vscode-errorForeground)">`
+      + `${escapeHtml(message)}</body></html>`
+  }
+}
