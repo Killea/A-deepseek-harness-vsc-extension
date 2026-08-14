@@ -1,9 +1,9 @@
 # DeepSeek Harness VSCode Extension
 
 > [!NOTE]
-> This is a **COMMUNITY** project. We are trying to make it better.
+> This is a **COMMUNITY** project. There may be some issues, and we are trying to make it better.
 >
-> 这是一个**社区**项目。我们正在努力让它变得足够好用。
+> 这是一个**社区**项目，它可能存在一些问题，而我们正在努力让它变得足够好用。
 
 <!--  -->
 
@@ -13,6 +13,13 @@ The Project is **Visual Studio Code Extension** provides additional features for
 
 ![GitHub License](https://img.shields.io/github/license/weinibuliu/deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/weinibuliu/deepseek-harness-vsc-extension)
 
+## Features
+
+- VSCode style interface VSCode 风格的界面
+- Native File Picker 原生文件选择器
+- Feeling of current focus 当前焦点感知
+- Problems from editor 编辑器问题
+
 ## Install
 
 ### Visual Studio Marketplace
@@ -21,8 +28,9 @@ The Project is **Visual Studio Code Extension** provides additional features for
 
 ### Download or Build VSIX
 
-[Github Repo](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
 [Github Release](https://github.com/weinibuliu/deepseek-harness-vsc-extension/releases)
+
+[Github Repo](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
 
 ## Start
 
@@ -42,12 +50,6 @@ npx @deepseek-ai/dsh
 > 由于 DeepSeek Harness 有可能发生破坏性变更，本拓展或许仅能与特定版本的 dsh 一起正常运行。
 >
 > Test Passed Version: 0.1.0-rc.6
-
-## Features
-
-- Native File Picker 原生文件选择器
-- Feeling of current focus 当前焦点感知
-- Problems from editor 编辑器问题
 
 ## TODO
 
