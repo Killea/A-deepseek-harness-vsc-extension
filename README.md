@@ -5,6 +5,12 @@
 >
 > 这是一个**社区**项目。我们正在努力让它变得足够好用。
 
+<!--  -->
+
+The Project is **Visual Studio Code Extension** provides additional features for Deepseek Harness.
+
+本项目是一个为 Deepseek Harness 提供额外能力的 **Visual Studio Code 拓展**。
+
 ![GitHub License](https://img.shields.io/github/license/weinibuliu/deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/weinibuliu/deepseek-harness-vsc-extension)
 
 ## Install
@@ -13,13 +19,10 @@
 
 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=weinibuliu.dsh-vsc)
 
-### From source build VSIX
+### Download or Build VSIX
 
-[Github](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
-
-The Project is **Visual Studio Code Extension** provides additional features for Deepseek Harness.
-
-本项目是一个为 Deepseek Harness 提供额外能力的 **Visual Studio Code 拓展**。
+[Github Repo](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
+[Github Release](https://github.com/weinibuliu/deepseek-harness-vsc-extension/releases)
 
 ## Start
 
