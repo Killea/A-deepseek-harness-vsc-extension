@@ -50,10 +50,10 @@ export function startDshWeb(options: DshServerOptions): Promise<StartedDshServer
   return new Promise((resolve, reject) => {
     const { launcher, extraArgs = [] } = options
     const args = [...launcher.args, ...extraArgs, 'web', '--port', '0']
-    // Windows batch/shim launchers (dsh.cmd, dsh.ps1, npx.cmd) need a shell.
-    const needsShell = process.platform === 'win32'
-      && !/\.exe$/iu.test(launcher.command)
-      && !pathIsAbsoluteExecutable(launcher.command)
+    // Windows batch/shim launchers (dsh.cmd, dsh.ps1, npx.cmd) need a shell;
+    // only a real .exe can be spawned directly. An absolute .cmd path still
+    // needs the shell — spawning it directly fails with EINVAL.
+    const needsShell = launcherNeedsShell(launcher.command)
     const child = spawn(launcher.command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -121,9 +121,17 @@ export function startDshWeb(options: DshServerOptions): Promise<StartedDshServer
   })
 }
 
-/** True when the command is an absolute path to an .exe (no shell needed). */
-function pathIsAbsoluteExecutable(command: string): boolean {
-  return /^[a-zA-Z]:[\\/]|^[/\\]/u.test(command)
+/**
+ * True when the launcher must run through a shell (cmd.exe). On Windows only
+ * a real `.exe` can be spawned directly; batch shims (`dsh.cmd`, `npx.cmd`)
+ * and PowerShell scripts fail with EINVAL when spawned without a shell, even
+ * when their path is absolute.
+ */
+export function launcherNeedsShell(
+  command: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform === 'win32' && !/\.exe$/iu.test(command)
 }
 
 function makeServer(

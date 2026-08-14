@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { launcherNeedsShell, startDshWeb } from '../src/dsh/server.ts'
+
+describe('launcherNeedsShell', () => {
+  it('needs a shell for an absolute-path .cmd shim on Windows', () => {
+    // The exact pattern behind the "spawn EINVAL" report:
+    // discovery returned `D:\nodejs\global\dsh.cmd` (absolute .cmd path).
+    expect(launcherNeedsShell('D:\\nodejs\\global\\dsh.cmd', 'win32')).toBe(true)
+  })
+
+  it('needs a shell for a PATH-resolved bare name on Windows', () => {
+    expect(launcherNeedsShell('npx', 'win32')).toBe(true)
+  })
+
+  it('does not need a shell for a real .exe on Windows', () => {
+    expect(launcherNeedsShell('D:\\nodejs\\global\\dsh.exe', 'win32')).toBe(false)
+  })
+
+  it('never needs a shell on POSIX', () => {
+    expect(launcherNeedsShell('/usr/local/bin/dsh', 'linux')).toBe(false)
+    expect(launcherNeedsShell('dsh', 'darwin')).toBe(false)
+  })
+})
+
+describe('startDshWeb', () => {
+  it.skipIf(process.platform !== 'win32')(
+    'spawns an absolute-path .cmd launcher without EINVAL',
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'dsh-vsc-server-'))
+      const launcherPath = join(dir, 'dsh.cmd')
+      writeFileSync(launcherPath, '@echo off\r\necho dsh web: http://127.0.0.1:38678\r\n')
+      try {
+        // Rejects with EINVAL before the fix; resolves with the ready URL after.
+        const server = await startDshWeb({
+          launcher: { command: launcherPath, args: [], source: 'path' },
+          bootTimeoutMs: 10_000,
+        })
+        expect(server.baseUrl).toBe('http://127.0.0.1:38678')
+        await server.stop()
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    },
+  )
+})
