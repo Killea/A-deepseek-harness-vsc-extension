@@ -21,6 +21,7 @@ import type {
   CredentialView,
   DiscoveredModelView,
   HostDescribeView,
+  PermissionDefaultView,
   SettingsPanelView,
   SettingsProfileApply,
   SettingsProviderCreate,
@@ -87,7 +88,7 @@ interface SchemaEnvelope {
 interface SchemaNodeDescriptor {
   uid: number
   type: string
-  meta?: { default?: unknown }
+  meta?: { default?: unknown; description?: unknown }
   inner?: number
   list?: number[]
   dict?: Record<string, number>
@@ -161,6 +162,34 @@ export function hasPath(value: unknown, path: readonly string[]): boolean {
   if (Array.isArray(parent)) return Number(key) < parent.length
   if (typeof parent !== 'object' || parent === null) return false
   return key in parent
+}
+
+/**
+ * 解析 permission settings namespace 的 defaultPreset：当前值 + 可选预设枚举。
+ * 枚举来自 schema 的 defaultPreset union（const 候选；`meta.description` = host 标签，
+ * 缺席回落表键）。契约跟随——结构随用户 dsh 的 permission 单元契约变化。
+ */
+function permissionDefaultOf(view: SettingsNamespaceView): Omit<PermissionDefaultView, 'writable' | 'revision'> {
+  const value = getPath(view.value, ['defaultPreset'])
+  if (typeof value !== 'string') throw new Error('permission settings 缺少 defaultPreset 值')
+  const root = schemaRoot(view.schema)
+  if (root === undefined) throw new Error('permission settings schema 缺失')
+  const refs = (view.schema as SchemaEnvelope).refs
+  const node = schemaNodeAt(root, ['defaultPreset'], refs)
+  if (node === undefined) throw new Error('permission settings schema 无 defaultPreset 字段')
+  const choices = node.type === 'union'
+    ? (node.list ?? []).map(id => refs[id]).filter((c): c is SchemaNodeDescriptor => c !== undefined)
+    : [node]
+  const options = choices.flatMap((choice) => {
+    if (choice.type !== 'const' || typeof choice.value !== 'string') return []
+    const label = choice.meta?.description
+    const name = typeof label === 'string' && label.length > 0 ? label : choice.value
+    return [{ id: choice.value, name }]
+  })
+  if (options.length === 0 || !options.some(option => option.id === value)) {
+    throw new Error('permission settings schema 未公布其当前预设')
+  }
+  return { currentValue: value, options }
 }
 
 // ---- join 与写操作 ----
@@ -260,6 +289,20 @@ export class SettingsService {
     }
 
     const namespaces = new Map(describe.namespaces.map(view => [view.ns, view]))
+    // 「通用」页默认权限模式：解析 permission namespace（解析失败不拖垮整页）。
+    const permissionNs = namespaces.get('permission')
+    let permissionDefault: PermissionDefaultView | undefined
+    if (permissionNs !== undefined) {
+      try {
+        permissionDefault = {
+          writable: describe.writable,
+          ...permissionDefaultOf(permissionNs),
+          revision: permissionNs.revision,
+        }
+      } catch (error) {
+        this.onLog(`[settings] permission namespace 解析失败: ${messageOf(error)}`)
+      }
+    }
     const rows: SettingsProviderRowView[] = providers.map((entry) => {
       const namespace = namespaces.get(entry.settingsNs)
       const configured = namespace !== undefined
@@ -334,6 +377,7 @@ export class SettingsService {
       ),
       credentials,
       protocols: protocolChoicesFromSchema(namespaces.get('llm-pi-ai')?.schema),
+      ...permissionDefault === undefined ? {} : { permissionDefault },
       ...host === undefined ? {} : { host },
     }
   }
@@ -428,5 +472,23 @@ export class SettingsService {
     const client = this.requireClient()
     const result = await client.call<{ models: DiscoveredModelView[] }>('llm.discoverModels', probe)
     return result.models
+  }
+
+  /** 写默认权限模式（permission namespace defaultPreset；conflict = revision 失配）。 */
+  async selectPermissionDefault(preset: string, expectedRevision: number): Promise<SettingsWriteResult> {
+    const client = this.requireClient()
+    try {
+      await client.call('settings.mutate', {
+        ns: 'permission',
+        ops: [{ op: 'set', path: ['defaultPreset'], value: preset }],
+        expectedRevision,
+      })
+    } catch (error) {
+      if (rpcErrorCode(error) === 'settings-conflict') {
+        return { ok: false, text: '配置已被其它编辑修改，已刷新，请重试', conflict: true }
+      }
+      return { ok: false, text: messageOf(error) }
+    }
+    return { ok: true }
   }
 }

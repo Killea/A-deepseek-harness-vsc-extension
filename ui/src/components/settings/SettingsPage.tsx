@@ -9,10 +9,11 @@ import { useEffect, useState } from 'react'
 import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
 import { statusCopy } from '../../statusCopy.ts'
 import { AboutPage } from './AboutPage.tsx'
+import { GeneralSettings } from './GeneralSettings.tsx'
 import { ModelsSettings } from './ModelsSettings.tsx'
 import type { SettingsWire } from './wire.ts'
 
-type Section = 'models' | 'about'
+type Section = 'models' | 'general' | 'about'
 
 interface SettingsPageProps {
   panel: SettingsPanelView | null
@@ -39,6 +40,17 @@ function InfoIcon() {
       <circle cx="8" cy="8" r="5.75" stroke="currentColor" strokeWidth="1.2" />
       <path d="M8 7.2V11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
       <circle cx="8" cy="5" r="0.85" fill="currentColor" />
+    </svg>
+  )
+}
+
+/** 通用菜单项图标：滑杆（sliders）。 */
+function GeneralIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+      <path d="M5 2.5V5M5 5V13.5M11 2.5V11M11 11V13.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="5" cy="6.5" r="1.5" fill="currentColor" />
+      <circle cx="11" cy="9.5" r="1.5" fill="currentColor" />
     </svg>
   )
 }
@@ -106,6 +118,7 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
         {/* 左侧导航：宽度只够容纳 label（w-fit），窗口过窄（≤240px）时折叠为纯图标 */}
         <nav className="flex w-fit max-[240px]:w-8 flex-none flex-col gap-0.5 border-r border-border-panel p-1.5 max-[240px]:p-1">
           {navItem('models', <ModelIcon />, '模型')}
+          {navItem('general', <GeneralIcon />, '通用')}
           {navItem('about', <InfoIcon />, '关于')}
         </nav>
 
@@ -132,6 +145,12 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
                   </>
                 ) : null}
               </div>
+            )
+          ) : section === 'general' ? (
+            panel === null ? (
+              <p className="px-3 py-2 text-xs text-description">加载中…</p>
+            ) : (
+              <GeneralSettings panel={panel} wire={wire} />
             )
           ) : (
             <AboutPage panel={panel} wire={wire} onOpenInBrowser={onOpenInBrowser} />

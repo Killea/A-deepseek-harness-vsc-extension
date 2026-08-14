@@ -104,11 +104,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.post({ type: 'pending', sessionId, items })
       this.updateActivity(sessionId, { pending: items.length > 0 })
     })
-    // M4b: todos projection change (selected session only; key-filtered so
-    // future non-todos projections do not re-post the plan strip).
+    // M4b: projection change (selected session only; key-filtered so a
+    // non-todos/permissions projection does not re-post the plan strip or
+    // the permission seat).
     projections.on('change', (sessionId: string, key: string) => {
-      if (key !== 'todos' || sessionId !== this.selectedSessionId) return
-      this.postTodos(sessionId)
+      if (sessionId !== this.selectedSessionId) return
+      if (key === 'todos') this.postTodos(sessionId)
+      else if (key === 'permissions') this.postPermissions(sessionId)
     })
   }
 
@@ -342,6 +344,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case 'settingsDiscoverModels':
         await this.serveDiscoverModels(message.id, message.probe)
         break
+      case 'settingsSelectPermissionDefault':
+        await this.serveSelectPermissionDefault(message.id, message.preset, message.expectedRevision)
+        break
       case 'settingsPickDshPath':
         await this.pickDshPath()
         break
@@ -478,6 +483,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     this.post({ type: 'pending', sessionId, items: this.pendingInteractions.snapshot(sessionId) })
     this.postTodos(sessionId)
+    this.postPermissions(sessionId)
     await this.refreshComposerCatalogs(sessionId)
   }
 
@@ -510,8 +516,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const snapshot = await this.conversations.attach(sessionId)
       if (this._selectedSessionId !== sessionId) return // user switched away meanwhile
       this.post({ type: 'conversation', sessionId, snapshot })
-      // M4b: attach 已同步 seed 投影 store（决策 9 回调），补发 todo 计划条快照。
+      // M4b: attach 已同步 seed 投影 store（决策 9 回调），补发 todo 计划条与权限席位快照。
       this.postTodos(sessionId)
+      this.postPermissions(sessionId)
     } catch (error) {
       this.post({ type: 'status', status: 'error', detail: String(error) })
     }
@@ -520,6 +527,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   /** M4b: 上送当前会话的 todos 投影（null = 无计划/能力缺席 → strip 隐藏）。 */
   private postTodos(sessionId: string): void {
     this.post({ type: 'todos', sessionId, todos: this.projections.todosOf(sessionId) })
+  }
+
+  /** 上送当前会话的 permissions 投影（null = 能力缺席 → 席位/弹出隐藏）。 */
+  private postPermissions(sessionId: string): void {
+    this.post({ type: 'permissions', sessionId, permissions: this.projections.permissionsOf(sessionId) })
   }
 
   /** M3b: / 命令目录快照（契约跟随；available=false 时 webview 不呼出 / 菜单）。
@@ -917,6 +929,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     try {
       const models = await this.settings.discoverModels(probe)
       this.post({ type: 'settingsReply', id, ok: true, value: models })
+    } catch (error) {
+      this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
+    }
+  }
+
+  /** 「通用」页：写默认权限模式；成功后回执并刷新面板（conflict → 提示重试）。 */
+  private async serveSelectPermissionDefault(id: number, preset: string, expectedRevision: number): Promise<void> {
+    try {
+      const result = await this.settings.selectPermissionDefault(preset, expectedRevision)
+      if (!result.ok) {
+        this.post({ type: 'settingsReply', id, ok: false, text: result.text, ...result.conflict === true ? { conflict: true } : {} })
+        if (result.conflict === true) void this.refreshSettings()
+        return
+      }
+      this.post({ type: 'settingsReply', id, ok: true })
+      void this.refreshSettings()
     } catch (error) {
       this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
     }

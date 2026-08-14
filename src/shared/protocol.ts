@@ -47,6 +47,8 @@ export type ExtensionToWebviewMessage =
   // M4b: 当前会话的 todo 计划条（todos 投影：todo/write 整表快照、turn/start 清空；
   // null = 无计划/能力缺席 → webview 不渲染 strip，静默降级）。
   | { type: 'todos'; sessionId: string; todos: TodoItem[] | null }
+  // 权限席位 + /permission 弹出选择器的数据源（permissions 投影；null = 能力缺席 → 隐藏）。
+  | { type: 'permissions'; sessionId: string; permissions: PermissionSelectView | null }
   // M6: 设置面板整页视图（打开时 / 状态翻转 / 每次写成功后再拉取时推送；
   // webview 纯渲染，所有 wire 调用在扩展侧执行）。
   | { type: 'settings'; panel: SettingsPanelView }
@@ -93,6 +95,8 @@ export type WebviewToExtensionMessage =
   | { type: 'settingsDeclareProvider'; id: number; create: SettingsProviderCreate }
   // M6: 询问 provider 端点可提供的模型（llm.discoverModels；应答经 settingsReply.value）。
   | { type: 'settingsDiscoverModels'; id: number; probe: SettingsProbe }
+  // 「通用」页：写默认权限模式（settings.mutate permission namespace defaultPreset）。
+  | { type: 'settingsSelectPermissionDefault'; id: number; preset: string; expectedRevision: number }
   // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 weinibuliu.dsh-vsc.dshPath → 重启服务。
   | { type: 'settingsPickDshPath' }
   // M6: 引导页「重试」：error 态重启 dsh 服务（不经文件选择器，沿用现有 launcher）。
@@ -432,6 +436,38 @@ export interface SessionModelsView {
   error: string | null
 }
 
+// ---- 权限预设（对齐 dsh permission-presets；读 permissions 会话投影）----
+
+/** 一个可切换的权限预设选项（permissions 投影的 options 项）。 */
+export interface PresetOptionView {
+  /** 稳定值：预设表键，或 'custom'。 */
+  value: string
+  /** 显示标签（host 提供的 name，缺席回落表键）。 */
+  name: string
+  /** 一句用户可读说明（host 提供；缺席 = 未配置）。 */
+  description?: string
+}
+
+/** permissions 会话投影整值（PermissionSelect）；custom 是派生态只显示不可选。 */
+export interface PermissionSelectView {
+  /** 可切换预设（按表序）+ custom 仅在为当前值时追加。 */
+  options: PresetOptionView[]
+  /** 生效当前值：预设键，或 'custom'。 */
+  currentValue: string
+}
+
+/** 默认权限模式（permission settings namespace）视图：「通用」页写 defaultPreset 用。 */
+export interface PermissionDefaultView {
+  /** settings 是否可写（只读 provider 时禁用）。 */
+  writable: boolean
+  /** 当前 defaultPreset。 */
+  currentValue: string
+  /** 可选预设（id = 机器键；name = host 标签，缺席回落键）。 */
+  options: { id: string; name: string }[]
+  /** permission namespace 的 user 层 revision（写回 expectedRevision）。 */
+  revision: number
+}
+
 // ---- M4b: todo 计划条（todos 投影；镜像 dsh-session TodoItem，契约跟随）----
 
 /**
@@ -537,6 +573,8 @@ export interface SettingsPanelView {
   protocols: string[]
   /** host.describe 快照（dsh 包页；best-effort，失败时缺席）。 */
   host?: HostDescribeView
+  /** 「通用」页默认权限模式（permission namespace；缺席 = 能力缺席 → 隐藏行）。 */
+  permissionDefault?: PermissionDefaultView
 }
 
 /** host.describe 视图（dsh 包页：host 运行时事实）。 */

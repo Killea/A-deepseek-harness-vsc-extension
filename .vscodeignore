@@ -21,7 +21,9 @@ node_modules
 CONTEXT.md
 AGENT.md
 docs
+
 deepseek-harness
+dsh-src
 cline
 
 *.vsix

@@ -6,6 +6,7 @@ CONTEXT.md
 .vscode/settings.json
 
 deepseek-harness
+dsh-src
 cline
 
 node_modules/

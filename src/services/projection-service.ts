@@ -18,7 +18,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { ServerRequest } from '../dsh/wire.ts'
-import type { TodoItem } from '../shared/protocol.ts'
+import type { PermissionSelectView, TodoItem } from '../shared/protocol.ts'
 
 /** Structural mirror of the history-tail projections block (sessions.schema). */
 export interface ProjectionsBlock {
@@ -65,6 +65,13 @@ export class ProjectionService extends EventEmitter {
     const value = this.slots.get(sessionId)?.get('todos')?.value
     if (value === undefined || value === null) return null
     return value as TodoItem[]
+  }
+
+  /** The session's current permission select (permissions 投影), or null when unknown. */
+  permissionsOf(sessionId: string): PermissionSelectView | null {
+    const value = this.slots.get(sessionId)?.get('permissions')?.value
+    if (value === undefined || value === null) return null
+    return value as PermissionSelectView
   }
 
   /** Drop the projection state of one session (session deletion / detach). */

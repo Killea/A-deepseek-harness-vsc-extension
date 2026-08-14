@@ -176,7 +176,7 @@ export function ModelSelect({ models, onOpen, onSelect, disabled }: ModelSelectP
   }
 
   return (
-    <div ref={rootRef} className="flex items-center justify-end gap-2 px-3.5 pb-1" onKeyDown={onKeyDown}>
+    <div ref={rootRef} className="flex items-center gap-2" onKeyDown={onKeyDown}>
       {routableBlocked && (
         <span className="mr-auto text-xs text-error">当前模型不可用，请先选择模型</span>
       )}

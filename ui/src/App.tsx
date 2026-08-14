@@ -17,6 +17,7 @@ import type {
   ExtensionToWebviewMessage,
   PendingAnswer,
   PendingItemView,
+  PermissionSelectView,
   SessionModelsView,
   SessionActivityView,
   SessionSummary,
@@ -87,6 +88,8 @@ export default function App() {
   const [pendingErrors, setPendingErrors] = useState<Record<string, string>>({})
   // M4b: 每会话 todo 计划条（todos 投影快照；null = 无计划/能力缺席 → strip 隐藏）。
   const [todosBySession, setTodosBySession] = useState<Record<string, TodoItem[] | null>>({})
+  // 权限席位 + /permission 弹出选择器（permissions 投影；null = 能力缺席 → 隐藏）。
+  const [permissionsBySession, setPermissionsBySession] = useState<Record<string, PermissionSelectView | null>>({})
   // M6: 设置面板视图切换 + 面板数据 + settingsReply 应答关联。
   const [view, setView] = useState<'chat' | 'settings'>('chat')
   const [webviewVisible, setWebviewVisible] = useState(document.visibilityState === 'visible')
@@ -194,6 +197,7 @@ export default function App() {
           setActivityBySession((prev) => omitKey(prev, key))
           setReadEndSeq((prev) => omitKey(prev, key))
           setReadErrorSeq((prev) => omitKey(prev, key))
+          setPermissionsBySession((prev) => omitKey(prev, key))
           break
         }
         case 'pending':
@@ -213,6 +217,9 @@ export default function App() {
           break
         case 'todos':
           setTodosBySession((prev) => ({ ...prev, [message.sessionId]: message.todos }))
+          break
+        case 'permissions':
+          setPermissionsBySession((prev) => ({ ...prev, [message.sessionId]: message.permissions }))
           break
         case 'settings':
           setSettingsPanel(message.panel)
@@ -262,6 +269,8 @@ export default function App() {
       if (!reply.ok) throw new Error(reply.text)
       return (reply.value ?? []) as DiscoveredModelView[]
     },
+    selectPermissionDefault: (preset, expectedRevision) =>
+      requestReply((id) => post({ type: 'settingsSelectPermissionDefault', id, preset, expectedRevision })),
     openSettingsYaml: () => post({ type: 'openSettingsYaml' }),
     refresh: () => post({ type: 'settingsRefresh' }),
     pickDshPath: () => post({ type: 'settingsPickDshPath' }),
@@ -499,6 +508,8 @@ export default function App() {
               models={modelsBySession[key] ?? null}
               onModelOpen={() => handleModelOpen(sessionId)}
               onModelSelect={(provider, model, effort) => handleModelSelect(sessionId, provider, model, effort)}
+              permissions={sessionId ? (permissionsBySession[sessionId] ?? null) : null}
+              onPermissionSelect={(preset) => handleCommandExecute(sessionId, `/permission ${preset}`)}
               notices={noticesBySession[key] ?? []}
               onNoticeDismissed={(id) => setNoticesBySession((prev) => ({
                 ...prev,

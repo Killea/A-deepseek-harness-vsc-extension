@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { IconSendOutline16, IconStopFill16 } from '../../icons/index.tsx'
+import { IconCheckOutline16, IconSendOutline16, IconStopFill16 } from '../../icons/index.tsx'
 import type {
   AtCandidatesView,
   AtRefPayload,
   CommandDescriptorView,
+  PermissionSelectView,
   SessionModelsView,
   SkillsSnapshot,
   TodoItem,
@@ -13,6 +14,7 @@ import {
   initialMenuState,
   insertionGap,
   menuReduce,
+  permissionOptions,
   visibleAtItems,
   visibleCommandRows,
   currentModelGroup,
@@ -20,8 +22,10 @@ import {
   type MenuState,
 } from '../../../src/shared/menu.ts'
 import { commandDescription } from '../commands-i18n.ts'
+import { permissionLabel } from '../permission.ts'
 import { TodoStrip } from './TodoStrip.tsx'
 import { ModelSelect } from './ModelSelect.tsx'
+import { PermissionSelect } from './PermissionSelect.tsx'
 
 interface ComposerProps {
   text: string
@@ -51,6 +55,10 @@ interface ComposerProps {
   models: SessionModelsView | null
   onModelOpen: () => void
   onModelSelect: (provider: string, model: string, effort?: string) => void
+  /** 权限席位 + /permission 弹出选择器的投影数据（null = 能力缺席 → 席位隐藏）。 */
+  permissions: PermissionSelectView | null
+  /** 选中权限预设（已过风险门）→ 提交 `/permission <preset>`。 */
+  onPermissionSelect: (preset: string) => void
   /** 命令准入即时反馈（composer 内提示）。 */
   notices: { level: 'info' | 'error'; text: string; id: number }[]
   onNoticeDismissed: (id: number) => void
@@ -104,6 +112,8 @@ export function Composer({
   models,
   onModelOpen,
   onModelSelect,
+  permissions,
+  onPermissionSelect,
   notices,
   onNoticeDismissed,
   todos,
@@ -184,7 +194,7 @@ export function Composer({
    * 裸 /model → 模型弹出层；命令面确认不可用（旧 dsh）→ 全部当普通文本（§7.2 降级）；
    * 目录未知（null）→ hold：保持草稿并重拉（绝不静默降级）。
    */
-  const adjudicate = (line: string): 'send' | 'execute' | 'model' | 'hold' => {
+  const adjudicate = (line: string): 'send' | 'execute' | 'model' | 'permission' | 'hold' => {
     if (!line.startsWith('/')) return 'send'
     const ws = line.search(/\s/)
     const token = ws === -1 ? line : line.slice(0, ws)
@@ -193,6 +203,8 @@ export function Composer({
     if (commands === null) return 'hold'
     if (!commands.available) return 'send'
     if (name === 'model' && ws === -1) return 'model'
+    // bare /permission（无参数）→ 弹出选择器；带参 /permission <preset> 仍走 execute。
+    if (name === 'permission' && (ws === -1 || line.slice(ws).trim() === '')) return 'permission'
     const entry = commands.items.find((e) => e.name === name)
     if (!entry) return 'send'
     if (entry.hint !== undefined) return 'execute'
@@ -211,7 +223,7 @@ export function Composer({
       onSend(value)
     } else if (decision === 'execute') {
       onCommandExecute(value)
-    } else {
+    } else if (decision === 'model') {
       // 裸 /model → 打开模型弹出层（draft 保留 `/model`，选中后清空）。
       onModelOpen()
       setMenu((prev) => {
@@ -222,6 +234,17 @@ export function Composer({
           position: 'leading',
         }).state
         return { ...opened, model: { group: 0, index: 0, loading: true, failed: false } }
+      })
+    } else {
+      // 裸 /permission → 打开权限弹出层（数据来自 permissions 投影 prop，无需重拉）。
+      setMenu((prev) => {
+        const opened = menuReduce(prev, {
+          type: 'open',
+          kind: 'slash',
+          span: { start: 0, end: value.length },
+          position: 'leading',
+        }).state
+        return { ...opened, permission: { index: 0, loading: true, failed: false } }
       })
     }
   }
@@ -322,6 +345,20 @@ export function Composer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [models])
+
+  // 权限弹出层数据：permissions 投影 prop 到达（或弹出层打开）→ 填充预设列表。
+  // 依赖 menu.permission 使每次打开都从当前 prop 重填（无 onModelOpen 式重拉）。
+  useEffect(() => {
+    if (!menu.open || menu.kind !== 'slash' || !menu.permission) return
+    if (permissions) {
+      setMenu((prev) =>
+        prev.open && prev.kind === 'slash' && prev.permission
+          ? menuReduce(prev, { type: 'permissions', value: permissions }).state
+          : prev,
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissions, menu.permission])
 
   // M3b: 扩展侧 @ 插入文本到达 → 替换触发 span（用户已改动则丢弃）。
   // 插入文本后跟一个分隔空格（insertionGap）：@ 引用/命令 token 由此成为独立词，
@@ -430,6 +467,11 @@ export function Composer({
         break
       case 'select-model':
         onModelSelect(outcome.provider, outcome.model.id)
+        break
+      case 'permission-drill':
+        break // 状态迁移已在 menuReduce 完成；数据来自 permissions 投影 prop。
+      case 'select-permission':
+        onPermissionSelect(outcome.preset)
         break
     }
   }
@@ -574,6 +616,26 @@ export function Composer({
         </>
       )
     }
+    if (menu.permission) {
+      if (menu.permission.loading) return <MenuLoading />
+      if (menu.permission.failed) return <MenuFailed />
+      const options = permissionOptions(menu)
+      if (options.length === 0) return <MenuRow title="没有可用的权限预设" selected={false} />
+      return options.map((option, i) => {
+        const selected = menu.permissions?.currentValue === option.value
+        const label = permissionLabel(option.value, option.name)
+        return (
+          <MenuRow key={option.value} selected={menu.index === i} title={label}>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="min-w-0 flex-1 truncate text-xs text-description" title={option.description}>
+                {option.description ?? ''}
+              </span>
+              {selected ? <IconCheckOutline16 size={16} /> : null}
+            </span>
+          </MenuRow>
+        )
+      })
+    }
     const rows = visibleCommandRows(menu)
     if (menu.loading) return <MenuLoading />
     if (menu.failed) return <MenuFailed />
@@ -677,14 +739,21 @@ export function Composer({
           )}
         </div>
       </div>
-      {/* 输入框下方的模型席位（右对齐；routable 拦截文案在席内左对齐显示）。
-          running/未就绪时禁用，routable=false 不锁席位（作为恢复入口）。 */}
-      <ModelSelect
-        models={models}
-        onOpen={onModelOpen}
-        onSelect={onModelSelect}
-        disabled={disabled || running || submitting || modelSubmitting || serviceDisabled}
-      />
+      {/* 输入框下方的席位（右对齐）：权限席位 + 模型席位并列。running/未就绪时禁用，
+          routable=false 不锁模型席位（作为恢复入口）。 */}
+      <div className="flex items-center justify-end gap-2 px-3.5 pb-1">
+        <PermissionSelect
+          value={permissions}
+          onSelect={onPermissionSelect}
+          disabled={disabled || running || submitting || modelSubmitting || serviceDisabled}
+        />
+        <ModelSelect
+          models={models}
+          onOpen={onModelOpen}
+          onSelect={onModelSelect}
+          disabled={disabled || running || submitting || modelSubmitting || serviceDisabled}
+        />
+      </div>
       {/* 命令准入即时反馈（不进对话流）。 */}
       {notices.length > 0 && (
         <div className="px-3.5 pb-1">
