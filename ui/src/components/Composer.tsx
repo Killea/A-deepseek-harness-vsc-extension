@@ -144,8 +144,11 @@ export function Composer({
 
   // routable=false：输入框 inert（模型目录快照里 host 报告当前路由无 adapter 服务）。
   const routableBlocked = models?.routable === false
-  const inputDisabled = disabled || running || submitting || routableBlocked
-  const guardTier: TriggerGuardTier = inputDisabled ? 'frozen' : claim ? 'claimed' : 'plain'
+  // 会话运行锁放宽：运行期间仍允许输入编辑（打字 + @ 引用），但发送与 / 命令、模型、权限
+  // 等会话动作仍冻结。故 inputDisabled 不再含 running；running 改在 guard 层压制 / 触发。
+  const inputDisabled = disabled || submitting || routableBlocked
+  // running 期间 / 触发被压制（只保留 @ 引用），对齐「编辑允许、命令冻结」。
+  const guardTier: TriggerGuardTier = inputDisabled ? 'frozen' : (running || claim) ? 'claimed' : 'plain'
 
   useEffect(() => {
     menuOpenRef.current = menu.open
@@ -215,6 +218,7 @@ export function Composer({
   }
 
   const send = (): void => {
+    if (running) return // 运行锁：运行期间保留草稿、禁止发送（停止按钮仍为逃生口）
     const value = text.trim()
     if (!value) return
     const decision = adjudicate(value)
@@ -476,6 +480,7 @@ export function Composer({
       }
       case 'execute': {
         // 执行触发 token 本身（inline 前缀保留，对齐 consume-token 语义）。
+        if (running) break // 运行锁：命令执行冻结
         const span = menu.span ?? { start: 0, end: text.length }
         const line = text.slice(span.start, span.end).trim()
         if (line) onCommandExecute(line)
@@ -485,13 +490,13 @@ export function Composer({
         onModelOpen()
         break
       case 'select-model':
-        onModelSelect(outcome.provider, outcome.model.id)
+        if (!running) onModelSelect(outcome.provider, outcome.model.id)
         break
       case 'permission-drill':
         onPermissionOpen() // 状态迁移已在 menuReduce 完成；这里按需重拉投影（空/未绑定会话可用）。
         break
       case 'select-permission':
-        onPermissionSelect(outcome.preset)
+        if (!running) onPermissionSelect(outcome.preset)
         break
     }
   }
@@ -546,7 +551,7 @@ export function Composer({
       return
     }
     // 空格 claim（对齐 dsh matchSpace）：行首 `/name` 后按空格 → `/name ` + hint。
-    if (e.key === ' ' && !e.shiftKey && !menu.open && !claim && commands?.available === true) {
+    if (e.key === ' ' && !e.shiftKey && !menu.open && !claim && !running && commands?.available === true) {
       const caret = e.currentTarget.selectionStart ?? text.length
       const leading = text.slice(0, caret)
       const ws = leading.search(/\s/)
