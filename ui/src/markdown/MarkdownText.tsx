@@ -3,6 +3,10 @@
  * `parse.ts` grammars, the incremental streaming parser, and `render.tsx`.
  * While a message streams, all but the trailing two blocks freeze as cached
  * React elements and only the source tail behind them re-parses per chunk.
+ * Delimiter math ($, \( \), \[ \], and same-line $$) renders as KaTeX as soon
+ * as its closing delimiter lands, so formulas appear mid-stream; the multi-line
+ * `$$` fence and fenced ```math stay plain until the settled swap because an
+ * unclosed fence can carry incomplete TeX.
  * Known deviation while streaming: a reference-style link or footnote whose
  * definition sits on the other side of the freeze boundary renders literally
  * until the settled full parse self-heals it.
@@ -11,7 +15,7 @@
 import { memo, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { IncrementalMarkdownParser } from './incremental.ts'
-import { parseGfm, parseGfmWithMath } from './parse.ts'
+import { parseGfmWithMath, parseGfmWithMathStreaming } from './parse.ts'
 import {
   collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
 } from './render.tsx'
@@ -49,7 +53,7 @@ function renderSettled(
 
 /** Streaming render state for one growing message. */
 class StreamingRenderer {
-  private readonly parser = new IncrementalMarkdownParser(parseGfm)
+  private readonly parser = new IncrementalMarkdownParser(parseGfmWithMathStreaming)
   private generation = -1
   private frozenCount = 0
   private frozenElements: ReactNode[] = []
@@ -120,8 +124,10 @@ class StreamingRenderer {
 
 /**
  * Render untrusted assistant-authored Markdown as semantic React elements.
- * @param props - `streaming` renders fences and TeX plain (highlighting and
- * KaTeX land on the finalize swap) and parses incrementally across chunks;
+ * @param props - `streaming` parses incrementally across chunks and renders
+ * delimiter math ($, \( \), \[ \], and same-line $$) as KaTeX mid-stream; the
+ * multi-line $$ fence and fenced ```math stay plain (shiki highlighting and
+ * both fences land on the finalize swap).
  * `fileMentions` links inline-code tokens its resolver recognizes as real
  * files and applies to settled renders only.
  */
