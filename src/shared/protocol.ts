@@ -198,26 +198,27 @@ export type TurnEndKind =
   | 'max-tokens'
   | 'interrupted'
 
-// ---- M5: tool 卡片摘要（read/write；fold 从 wire 派生，webview 相对化显示）----
+// ---- M5: tool 卡片摘要（read/write/edit；fold 从 wire 派生，webview 相对化显示）----
 
 /**
- * read/write 工具的卡片摘要。fold 从 wire 数据派生：read 的路径来自 call 侧
+ * read/write/edit 工具的卡片摘要。fold 从 wire 数据派生：read 的路径来自 call 侧
  * `file_path`、总行数与窗口字节来自 result 侧 `meta`（presentationMeta 持久化，
- * replay 可复现）；write 的路径与写入内容行数全部来自 call 侧 `arguments`。
+ * replay 可复现）；write/edit 的路径与写入内容行数全部来自 call 侧 `arguments`。
  * 仅对可派生的调用出现；webview 按工作区根相对化路径并格式化显示。
  */
 export interface ToolFileSummary {
   /** 工具报告的路径（displayPath，绝对或相对原文）。 */
   path: string
-  /** read = 文件总行数（meta.totalLines）；write = 写入内容行数；运行中/无 meta 时缺席。 */
+  /** read = 文件总行数（meta.totalLines）；write = content 行数；edit = new_string 行数；运行中/无 meta 时缺席。 */
   lines?: number
-  /** read = 本次返回窗口的 UTF-8 字节数（meta 行文本 + 换行求和）；write 无此字段。 */
+  /** read = 本次返回窗口的 UTF-8 字节数（meta 行文本 + 换行求和）；write/edit 无此字段。 */
   bytes?: number
 }
 
 /**
- * read/write 结果的卡片正文视图（fold 从 wire 解析：read 的 meta 行窗口或
- * envelope 兜底解析；write 的 meta.diffs 或 call 侧 content 派生 diff）。
+ * read/write/edit 结果的卡片正文视图（fold 从 wire 解析：read 的 meta 行窗口或
+ * envelope 兜底解析；write 的 meta.diffs 或 call 侧 content 派生 diff；edit 的
+ * call 侧 old_string/new_string 派生 diff）。
  * 有 view 时 webview 渲染结构化正文，不再显示模型面 envelope 原文；
  * 错误结果不携带 view（保留 error 文本展示）。
  */
@@ -242,8 +243,17 @@ export type ToolResultView =
       /** 删除行数（-M）。 */
       deletions: number
     }
+  | {
+      kind: 'edit'
+      /** 逐行变更（按块顺序：删除块 → 新增块）。 */
+      changes: WriteChangeView[]
+      /** 新增行数（+N）。 */
+      additions: number
+      /** 删除行数（-M）。 */
+      deletions: number
+    }
 
-/** write diff 的一行变更（- 删除 / + 新增）。 */
+/** write/edit diff 的一行变更（- 删除 / + 新增）。 */
 export interface WriteChangeView {
   kind: 'add' | 'del'
   text: string

@@ -353,10 +353,11 @@ function formatKb(bytes: number): string {
   return kb >= 100 ? String(Math.round(kb)) : (Math.round(kb * 10) / 10).toString()
 }
 
-/** M5: 摘要动词（read/write 本地化；未知回退工具名）。 */
+/** M5: 摘要动词（read/write/edit 本地化；未知回退工具名）。 */
 function summaryVerb(name: string | null): string {
   if (name === 'read') return 'Read'
   if (name === 'write') return 'Write'
+  if (name === 'edit') return 'Edit'
   return name ?? '…'
 }
 
@@ -374,8 +375,8 @@ function ReadBodyView({ view }: { view: Extract<ToolResultView, { kind: 'read' }
   )
 }
 
-/** M5: write 正文——逐行 diff（- 删除红、+ 新增绿，替代模型面 envelope 原文）。 */
-function DiffBodyView({ view }: { view: Extract<ToolResultView, { kind: 'write' }> }) {
+/** M5: write/edit 正文——逐行 diff（- 删除红、+ 新增绿，替代模型面 envelope 原文）。 */
+function DiffBodyView({ view }: { view: Extract<ToolResultView, { kind: 'write' | 'edit' }> }) {
   return (
     <div className="mt-1 max-h-[160px] overflow-y-auto rounded-xs bg-muted/30 font-mono text-xs leading-normal [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       {view.changes.map((change, index) => (
@@ -470,7 +471,7 @@ function ToolCardView({
           // M5b: 通用工具折叠态 = 仅工具名（args 移入展开态）。
           <code className="shrink-0 font-mono text-xs">{label}</code>
         )}
-        {item.view?.kind === 'write' ? (
+        {item.view?.kind === 'write' || item.view?.kind === 'edit' ? (
           // M5: diff 统计徽标：+新增 -删除。
           <span className="shrink-0 font-mono text-xs">
             <span className="text-success">+{item.view.additions}</span>
@@ -495,7 +496,7 @@ function ToolCardView({
           ) : null}
           {item.view?.kind === 'read' ? (
             <ReadBodyView view={item.view} />
-          ) : item.view?.kind === 'write' ? (
+          ) : item.view?.kind === 'write' || item.view?.kind === 'edit' ? (
             <DiffBodyView view={item.view} />
           ) : bodyText !== undefined ? (
             // 无结构化正文（错误结果或未知工具）：保留模型面文本。

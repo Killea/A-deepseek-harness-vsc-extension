@@ -377,7 +377,7 @@ function readMeta(value: unknown): ReadMetaView | null {
   }
 }
 
-/** M5: 从 call 侧 args 派生 read/write 摘要（path 必得；write 追加 content 行数）。 */
+/** M5: 从 call 侧 args 派生 read/write/edit 摘要（path 必得；write/edit 追加写入内容行数）。 */
 function argsSummary(name: string, args: Record<string, unknown> | null): ToolFileSummary | undefined {
   const path = args === null ? null : readString(args, 'file_path')
   if (path === null) return undefined
@@ -386,10 +386,14 @@ function argsSummary(name: string, args: Record<string, unknown> | null): ToolFi
     const content = args === null ? undefined : args['content']
     return typeof content === 'string' ? { path, lines: countLines(content) } : { path }
   }
+  if (name === 'edit') {
+    const newText = args === null ? undefined : args['new_string']
+    return typeof newText === 'string' ? { path, lines: countLines(newText) } : { path }
+  }
   return undefined
 }
 
-// ---- M5: read/write 结果正文视图（结构化渲染，替代模型面 envelope 原文）----
+// ---- M5: read/write/edit 结果正文视图（结构化渲染，替代模型面 envelope 原文）----
 
 /** M5: 提取 read 的 meta 行窗口（{number, text} 形状）；不可读 → null。 */
 function metaLines(value: unknown): { number: number; text: string }[] | null {
@@ -519,6 +523,16 @@ function writeResultView(meta: unknown, args: Record<string, unknown> | null): T
     additions,
     deletions: 0,
   }
+}
+
+/** M5: edit 结果视图——从 call 侧 old_string/new_string 派生逐行 diff。 */
+function editResultView(args: Record<string, unknown> | null): ToolResultView | null {
+  const oldText = args === null ? undefined : args['old_string']
+  const newText = args === null ? undefined : args['new_string']
+  if (typeof oldText !== 'string' || typeof newText !== 'string') return null
+  const { changes, additions, deletions } = lineDiff(oldText, newText)
+  if (changes.length === 0) return null
+  return { kind: 'edit', changes, additions, deletions }
 }
 
 export class ConversationFold {
@@ -678,7 +692,8 @@ export class ConversationFold {
         const current = index >= 0 ? this.items[index] : undefined
         // M5: 成功结果补全摘要与正文视图。read：meta 的 totalLines + 窗口字节 +
         // 行窗口视图（meta 缺失时 envelope 兜底解析）；write：meta.diffs 或
-        // call 侧 content 的 diff 视图。错误结果不携带 view（保留 error 文本）。
+        // call 侧 content 的 diff 视图；edit：call 侧 old_string/new_string 的 diff。
+        // 错误结果不携带 view（保留 error 文本）。
         let summary: ToolFileSummary | undefined
         let view: ToolResultView | undefined
         if (current !== undefined && current.kind === 'tool' && !failed) {
@@ -698,6 +713,8 @@ export class ConversationFold {
             view = readResultView(data.meta, text) ?? undefined
           } else if (current.name === 'write') {
             view = writeResultView(data.meta, parseArgs(current.args ?? '')) ?? undefined
+          } else if (current.name === 'edit') {
+            view = editResultView(parseArgs(current.args ?? '')) ?? undefined
           }
         }
         if (current && current.kind === 'tool') {
