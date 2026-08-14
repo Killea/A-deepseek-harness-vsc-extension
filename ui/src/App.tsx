@@ -219,7 +219,8 @@ export default function App() {
           setTodosBySession((prev) => ({ ...prev, [message.sessionId]: message.todos }))
           break
         case 'permissions':
-          setPermissionsBySession((prev) => ({ ...prev, [message.sessionId]: message.permissions }))
+          if (!accept('permissions', message.sessionId, message.requestId)) break
+          setPermissionsBySession((prev) => ({ ...prev, [composerKey(message.sessionId)]: message.permissions }))
           break
         case 'settings':
           setSettingsPanel(message.panel)
@@ -376,6 +377,12 @@ export default function App() {
     post({ type: 'modelOpen', sessionId, requestId, occupiedBlankSessionIds: occupiedBlankSessionIds() })
   }, [occupiedBlankSessionIds, post])
 
+  // /permission 弹出层打开 → 解析会话并加载 permissions 投影（空/未绑定会话可用）。
+  const handlePermissionOpen = useCallback((sessionId: string | null): void => {
+    const requestId = ++requestSeq.current
+    post({ type: 'permissionOpen', sessionId, requestId, occupiedBlankSessionIds: occupiedBlankSessionIds() })
+  }, [occupiedBlankSessionIds, post])
+
   const handleModelSelect = useCallback((sessionId: string | null, provider: string, model: string, effort?: string): void => {
     const key = composerKey(sessionId)
     const requestId = ++requestSeq.current
@@ -508,8 +515,9 @@ export default function App() {
               models={modelsBySession[key] ?? null}
               onModelOpen={() => handleModelOpen(sessionId)}
               onModelSelect={(provider, model, effort) => handleModelSelect(sessionId, provider, model, effort)}
-              permissions={sessionId ? (permissionsBySession[sessionId] ?? null) : null}
+              permissions={permissionsBySession[key] ?? null}
               onPermissionSelect={(preset) => handleCommandExecute(sessionId, `/permission ${preset}`)}
+              onPermissionOpen={() => handlePermissionOpen(sessionId)}
               notices={noticesBySession[key] ?? []}
               onNoticeDismissed={(id) => setNoticesBySession((prev) => ({
                 ...prev,

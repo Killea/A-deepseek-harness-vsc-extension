@@ -48,7 +48,7 @@ export type ExtensionToWebviewMessage =
   // null = 无计划/能力缺席 → webview 不渲染 strip，静默降级）。
   | { type: 'todos'; sessionId: string; todos: TodoItem[] | null }
   // 权限席位 + /permission 弹出选择器的数据源（permissions 投影；null = 能力缺席 → 隐藏）。
-  | { type: 'permissions'; sessionId: string; permissions: PermissionSelectView | null }
+  | { type: 'permissions'; sessionId: string | null; requestId: number; permissions: PermissionSelectView | null }
   // M6: 设置面板整页视图（打开时 / 状态翻转 / 每次写成功后再拉取时推送；
   // webview 纯渲染，所有 wire 调用在扩展侧执行）。
   | { type: 'settings'; panel: SettingsPanelView }
@@ -77,6 +77,8 @@ export type WebviewToExtensionMessage =
   | { type: 'commandExecute'; sessionId: string | null; requestId: number; line: string; occupiedBlankSessionIds?: string[] }
   // M3b: /model 弹出层打开 → session.models。
   | { type: 'modelOpen'; sessionId: string | null; requestId: number; occupiedBlankSessionIds?: string[] }
+  // /permission 弹出层打开 → 扩展侧解析会话并加载 permissions 投影（空/未绑定会话可用）。
+  | { type: 'permissionOpen'; sessionId: string | null; requestId: number; occupiedBlankSessionIds?: string[] }
   // M3b: /model 选中模型 → session.selectModel（effort 可选；缺席 = 回落默认）。
   | { type: 'modelSelect'; sessionId: string | null; requestId: number; provider: string; model: string; effort?: string; occupiedBlankSessionIds?: string[] }
   // M4: 应答一个 pending 交互（approval 答结局；question/plan-review 答答案批）。

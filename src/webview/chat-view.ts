@@ -213,6 +213,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           this.post({ type: 'commandNotice', sessionId: message.sessionId, level: 'error', text: String(error) })
         }
         break
+      case 'permissionOpen':
+        await this.servePermissionOpen(message.sessionId, message.requestId, message.occupiedBlankSessionIds)
+        break
       case 'modelSelect':
         await this.serveModelSelect(
           message.sessionId,
@@ -529,9 +532,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'todos', sessionId, todos: this.projections.todosOf(sessionId) })
   }
 
-  /** 上送当前会话的 permissions 投影（null = 能力缺席 → 席位/弹出隐藏）。 */
-  private postPermissions(sessionId: string): void {
-    this.post({ type: 'permissions', sessionId, permissions: this.projections.permissionsOf(sessionId) })
+  /** 上送某会话的 permissions 投影（null = 能力缺席 → 席位/弹出隐藏）。 */
+  private postPermissions(sessionId: string, requestId = 0): void {
+    this.post({ type: 'permissions', sessionId, requestId, permissions: this.projections.permissionsOf(sessionId) })
   }
 
   /** M3b: / 命令目录快照（契约跟随；available=false 时 webview 不呼出 / 菜单）。
@@ -737,6 +740,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         type: 'models', sessionId: responseSessionId, requestId,
         models: { current: null, routable: null, groups: [], failures: [], error: String(error) },
       })
+    }
+  }
+
+  /** /permission 弹出层打开 → 解析会话并加载 permissions 投影（空/未绑定会话可用）。
+   *  结果以 sourceSessionId 为键上送（未绑定 = null → webview 落到未绑定 composer）。 */
+  private async servePermissionOpen(
+    sourceSessionId: string | null,
+    requestId: number,
+    occupiedBlankSessionIds: readonly string[] = [],
+  ): Promise<void> {
+    try {
+      const sessionId = await this.resolveComposerSession(sourceSessionId, occupiedBlankSessionIds)
+      await this.conversations.seedProjections(sessionId)
+      this.post({ type: 'permissions', sessionId: sourceSessionId, requestId, permissions: this.projections.permissionsOf(sessionId) })
+    } catch (error) {
+      this.post({ type: 'permissions', sessionId: sourceSessionId, requestId, permissions: null })
+      this.post({ type: 'commandNotice', sessionId: sourceSessionId, level: 'error', text: String(error) })
     }
   }
 

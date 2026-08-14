@@ -59,6 +59,8 @@ interface ComposerProps {
   permissions: PermissionSelectView | null
   /** 选中权限预设（已过风险门）→ 提交 `/permission <preset>`。 */
   onPermissionSelect: (preset: string) => void
+  /** /permission 弹出层打开 → 解析会话并加载投影（空/未绑定会话可用）。 */
+  onPermissionOpen: () => void
   /** 命令准入即时反馈（composer 内提示）。 */
   notices: { level: 'info' | 'error'; text: string; id: number }[]
   onNoticeDismissed: (id: number) => void
@@ -114,6 +116,7 @@ export function Composer({
   onModelSelect,
   permissions,
   onPermissionSelect,
+  onPermissionOpen,
   notices,
   onNoticeDismissed,
   todos,
@@ -236,7 +239,8 @@ export function Composer({
         return { ...opened, model: { group: 0, index: 0, loading: true, failed: false } }
       })
     } else {
-      // 裸 /permission → 打开权限弹出层（数据来自 permissions 投影 prop，无需重拉）。
+      // 裸 /permission → 打开权限弹出层并按需加载投影（空/未绑定会话也可用）。
+      onPermissionOpen()
       setMenu((prev) => {
         const opened = menuReduce(prev, {
           type: 'open',
@@ -360,6 +364,21 @@ export function Composer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permissions, menu.permission])
 
+  // /permission 弹出层：投影宽限期后仍未到 → 标记失败（空/无权限能力的会话不卡「加载中…」）。
+  useEffect(() => {
+    if (!menu.open || menu.kind !== 'slash' || !menu.permission) return
+    if (!menu.permission.loading) return
+    if (permissions !== null) return
+    const timer = setTimeout(() => {
+      setMenu((prev) =>
+        prev.open && prev.kind === 'slash' && prev.permission && prev.permission.loading
+          ? menuReduce(prev, { type: 'permissionsFailed' }).state
+          : prev,
+      )
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [menu.permission, permissions])
+
   // M3b: 扩展侧 @ 插入文本到达 → 替换触发 span（用户已改动则丢弃）。
   // 插入文本后跟一个分隔空格（insertionGap）：@ 引用/命令 token 由此成为独立词，
   // 光标之后的输入（含再次 @ 或 /）不再并入原 token，即退出命令态。
@@ -469,7 +488,8 @@ export function Composer({
         onModelSelect(outcome.provider, outcome.model.id)
         break
       case 'permission-drill':
-        break // 状态迁移已在 menuReduce 完成；数据来自 permissions 投影 prop。
+        onPermissionOpen() // 状态迁移已在 menuReduce 完成；这里按需重拉投影（空/未绑定会话可用）。
+        break
       case 'select-permission':
         onPermissionSelect(outcome.preset)
         break
@@ -618,7 +638,7 @@ export function Composer({
     }
     if (menu.permission) {
       if (menu.permission.loading) return <MenuLoading />
-      if (menu.permission.failed) return <MenuFailed />
+      if (menu.permission.failed) return <MenuRow title="权限信息不可用" selected={false} />
       const options = permissionOptions(menu)
       if (options.length === 0) return <MenuRow title="没有可用的权限预设" selected={false} />
       return options.map((option, i) => {

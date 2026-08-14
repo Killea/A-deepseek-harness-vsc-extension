@@ -101,6 +101,18 @@ export class ConversationService extends EventEmitter {
     }
   }
 
+  /**
+   * Seed only the projection store for a session (no fold rebuild). Used when
+   * the composer needs permission/todo data for an unbound or blank session
+   * without selecting it — a light `session.history` tail read forwards the
+   * projections block through the same sink `attach` uses.
+   */
+  async seedProjections(sessionId: string): Promise<void> {
+    const client = this.requireClient()
+    const page = await client.call<HistoryPage>('session.history', { sessionId })
+    if (page.projections !== undefined) this.onProjections?.(sessionId, page.projections as ProjectionsBlock)
+  }
+
   /** Route one mux frame into the owning session's fold (or its pending buffer). */
   applyFrame(frame: ServerRequest): void {
     const payload = frame.payload as MuxFrame
