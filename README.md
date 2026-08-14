@@ -5,7 +5,17 @@
 >
 > 这是一个**社区**项目。我们正在努力让它变得足够好用。
 
-[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=weinibuliu.dsh-vsc) | [Github](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
+![GitHub License](https://img.shields.io/github/license/weinibuliu/deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/weinibuliu/deepseek-harness-vsc-extension)
+
+## Install
+
+### Visual Studio Marketplace
+
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=weinibuliu.dsh-vsc)
+
+### From source build VSIX
+
+[Github](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
 
 The Project is **Visual Studio Code Extension** provides additional features for Deepseek Harness.
 
@@ -61,6 +71,19 @@ We are trying to make this project better, including following the dsh and addin
 This project is licensed under **MIT LICENSE**.
 
 项目以 MIT 协议开源。
+
+## Development
+
+```bash
+pnpm i
+
+# Debug
+pnpm build
+F5
+
+# Package (output VSIX)
+pnpm package
+```
 
 ## Acknowledge
 
