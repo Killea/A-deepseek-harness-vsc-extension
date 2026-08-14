@@ -12,6 +12,7 @@ import type {
   AtCandidatesView,
   AtRefPayload,
   CommandsSnapshot,
+  ComposerSubmitGesture,
   ConversationSnapshot,
   DiscoveredModelView,
   ExtensionToWebviewMessage,
@@ -280,6 +281,8 @@ export default function App() {
     },
     selectPermissionDefault: (preset, expectedRevision) =>
       requestReply((id) => post({ type: 'settingsSelectPermissionDefault', id, preset, expectedRevision })),
+    selectBusyEnter: (behavior, expectedRevision) =>
+      requestReply((id) => post({ type: 'settingsSelectBusyEnter', id, behavior, expectedRevision })),
     openSettingsYaml: () => post({ type: 'openSettingsYaml' }),
     refresh: () => post({ type: 'settingsRefresh' }),
     pickDshPath: () => post({ type: 'settingsPickDshPath' }),
@@ -323,11 +326,11 @@ export default function App() {
     post({ type: 'renameSession', sessionId, currentTitle })
   }, [post])
 
-  const handleSend = useCallback((sessionId: string | null, text: string): void => {
+  const handleSend = useCallback((sessionId: string | null, text: string, gesture: ComposerSubmitGesture): void => {
     const key = composerKey(sessionId)
     const requestId = ++requestSeq.current
     setOperationsBySession((prev) => ({ ...prev, [key]: { requestId, kind: 'send' } }))
-    post({ type: 'send', sessionId, requestId, text, occupiedBlankSessionIds: occupiedBlankSessionIds() })
+    post({ type: 'send', sessionId, requestId, text, gesture, occupiedBlankSessionIds: occupiedBlankSessionIds() })
   }, [occupiedBlankSessionIds, post])
 
   const handleCancel = useCallback((sessionId: string): void => {
@@ -524,7 +527,7 @@ export default function App() {
               text={drafts[key] ?? ''}
               onTextChange={(text) => setDrafts((prev) => ({ ...prev, [key]: text }))}
               commitSeq={commitSeqBySession[key] ?? 0}
-              onSend={(text) => handleSend(sessionId, text)}
+              onSend={(text, gesture) => handleSend(sessionId, text, gesture)}
               onCancel={() => sessionId && handleCancel(sessionId)}
               onAtOpen={() => handleAtOpen(sessionId)}
               onAtResolve={(ref) => handleAtResolve(sessionId, ref)}

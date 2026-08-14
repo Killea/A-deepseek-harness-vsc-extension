@@ -16,6 +16,8 @@ import { join } from 'node:path'
 import type {
   AtCandidatesView,
   AtRefPayload,
+  BusyEnterBehavior,
+  ComposerSubmitGesture,
   ExtensionToWebviewMessage,
   SessionActivityView,
   SessionSummary,
@@ -63,6 +65,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private unboundSessionResolution: Promise<{ sessionId: string }> | null = null
   /** M6: 设置面板当前是否打开（status 翻转时按需刷新面板视图）。 */
   private _settingsOpen = false
+  /** 繁忙时 Enter 键行为偏好（ui-conversation.busyEnter；hydrate/settings 读取）。 */
+  private busyEnter: BusyEnterBehavior = 'queue'
   /** ADR-0004: 已上送文件提及词表对应的工作区根（变化才重枚举）。 */
   private fileIndexWorkspacePath: string | null = null
 
@@ -270,7 +274,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           // source of truth); nothing optimistic is echoed. The prompt's
           // command slot (a future dsh dispatching a slash command inside a
           // prompt) surfaces as an immediate composer notice.
-          const result = await this.sessions.prompt(sessionId, text)
+          const mode = this.resolveSubmitMode(sessionId, message.gesture ?? 'enter')
+          const result = await this.sessions.prompt(sessionId, text, mode)
           this.post({
             type: 'composerOperation', sourceSessionId, sessionId, requestId: message.requestId,
             operation: 'send', status: 'accepted',
@@ -349,6 +354,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break
       case 'settingsSelectPermissionDefault':
         await this.serveSelectPermissionDefault(message.id, message.preset, message.expectedRevision)
+        break
+      case 'settingsSelectBusyEnter':
+        await this.serveSelectBusyEnter(message.id, message.behavior, message.expectedRevision)
         break
       case 'settingsPickDshPath':
         await this.pickDshPath()
@@ -474,6 +482,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   async hydrate(): Promise<void> {
     const facts = this.dshFacts()
     this.post({ type: 'serviceStatus', status: facts.status, ...(facts.statusDetail === undefined ? {} : { detail: facts.statusDetail }) })
+    // 繁忙时 Enter 偏好 best-effort 加载（失败回落 queue，不阻塞重水合）。
+    this.busyEnter = await this.settings.loadBusyEnter()
     await this.refreshSessions()
     // 启动门失败页：webview 重载/首载时若已是终态（error/stopped），推送「关于」gate 面板数据。
     if (facts.status === 'error' || facts.status === 'stopped') await this.refreshSettings()
@@ -871,6 +881,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       || this.modelInFlight.has(sessionId)
   }
 
+  /** 繁忙时 Enter 键行为解析（对齐 dsh ComposerSubmissionPolicy.resolve）：
+   *  非运行态一律 queue；运行态普通 Enter 用偏好值，Cmd/Ctrl+Enter 用反值。 */
+  private resolveSubmitMode(sessionId: string, gesture: ComposerSubmitGesture): 'queue' | 'steer' {
+    if (this.activities.get(sessionId)?.running !== true) return 'queue'
+    const preferred = this.busyEnter
+    if (gesture === 'enter') return preferred
+    return preferred === 'queue' ? 'steer' : 'queue'
+  }
+
   private updateActivity(sessionId: string, patch: Partial<SessionActivityView>): void {
     const current = this.activities.get(sessionId) ?? { running: false, pending: false }
     const next = { ...current, ...patch }
@@ -891,6 +910,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       : { found: false as const }
     try {
       const data = await this.settings.loadPanel()
+      // 面板 join 成功即同步偏好缓存（composer 的 busy-enter 解析用）。
+      this.busyEnter = data.busyEnter?.currentValue ?? 'queue'
       this.post({
         type: 'settings',
         panel: {
@@ -991,6 +1012,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         if (result.conflict === true) void this.refreshSettings()
         return
       }
+      this.post({ type: 'settingsReply', id, ok: true })
+      void this.refreshSettings()
+    } catch (error) {
+      this.post({ type: 'settingsReply', id, ok: false, text: String(error) })
+    }
+  }
+
+  /** 「通用」页：写繁忙时 Enter 键行为；成功后同步偏好缓存并刷新面板。 */
+  private async serveSelectBusyEnter(id: number, behavior: BusyEnterBehavior, expectedRevision: number): Promise<void> {
+    try {
+      const result = await this.settings.selectBusyEnter(behavior, expectedRevision)
+      if (!result.ok) {
+        this.post({ type: 'settingsReply', id, ok: false, text: result.text, ...result.conflict === true ? { conflict: true } : {} })
+        if (result.conflict === true) void this.refreshSettings()
+        return
+      }
+      this.busyEnter = behavior
       this.post({ type: 'settingsReply', id, ok: true })
       void this.refreshSettings()
     } catch (error) {

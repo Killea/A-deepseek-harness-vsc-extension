@@ -4,6 +4,7 @@
  */
 
 import type {
+  BusyEnterBehavior,
   DiscoveredModelView,
   SettingsProfileApply,
   SettingsProbe,
@@ -22,6 +23,8 @@ export interface SettingsWire {
   discover(probe: SettingsProbe): Promise<DiscoveredModelView[]>
   /** 写默认权限模式（permission namespace defaultPreset）。 */
   selectPermissionDefault(preset: string, expectedRevision: number): Promise<SettingsReply>
+  /** 写繁忙时 Enter 键行为（ui-conversation namespace busyEnter）。 */
+  selectBusyEnter(behavior: BusyEnterBehavior, expectedRevision: number): Promise<SettingsReply>
   /** 在当前 VS Code 窗口打开 settings.yaml（fire-and-forget）。 */
   openSettingsYaml(): void
   refresh(): void

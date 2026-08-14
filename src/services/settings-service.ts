@@ -18,6 +18,8 @@ import type { WireClient } from '../dsh/wire.ts'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type {
+  BusyEnterBehavior,
+  BusyEnterView,
   CredentialView,
   DiscoveredModelView,
   HostDescribeView,
@@ -142,6 +144,15 @@ function schemaDefaultAt(schema: unknown, path: readonly string[]): unknown {
 
 // ---- JSON path helpers (webview 无需解析 schema；扩展侧 join 用) ----
 
+/** 对话插件拥有的设置 namespace（对齐 dsh ui-conversation；存 busyEnter 偏好）。 */
+const CONVERSATION_SETTINGS_NAMESPACE = 'ui-conversation'
+
+/** busyEnter 字段名。 */
+const BUSY_ENTER_FIELD = 'busyEnter'
+
+/** 默认繁忙时 Enter 行为（保留 Enter-as-Queue）。 */
+const DEFAULT_BUSY_ENTER_BEHAVIOR: BusyEnterBehavior = 'queue'
+
 export function getPath(value: unknown, path: readonly string[]): unknown {
   let current: unknown = value
   for (const key of path) {
@@ -190,6 +201,15 @@ function permissionDefaultOf(view: SettingsNamespaceView): Omit<PermissionDefaul
     throw new Error('permission settings schema 未公布其当前预设')
   }
   return { currentValue: value, options }
+}
+
+/**
+ * 读取 ui-conversation settings namespace 的 busyEnter（字段缺席回落 queue）。
+ * 值域固定为 queue/steer，不解析 schema 枚举。
+ */
+function busyEnterOf(view: SettingsNamespaceView): Omit<BusyEnterView, 'writable' | 'revision'> {
+  const value = getPath(view.value, [BUSY_ENTER_FIELD])
+  return { currentValue: value === 'steer' ? 'steer' : 'queue' }
 }
 
 // ---- join 与写操作 ----
@@ -303,6 +323,16 @@ export class SettingsService {
         this.onLog(`[settings] permission namespace 解析失败: ${messageOf(error)}`)
       }
     }
+    // 「通用」页繁忙时 Enter 键行为：解析 ui-conversation namespace（缺席回落 queue）。
+    const conversationNs = namespaces.get(CONVERSATION_SETTINGS_NAMESPACE)
+    let busyEnter: BusyEnterView | undefined
+    if (conversationNs !== undefined) {
+      busyEnter = {
+        writable: describe.writable,
+        ...busyEnterOf(conversationNs),
+        revision: conversationNs.revision,
+      }
+    }
     const rows: SettingsProviderRowView[] = providers.map((entry) => {
       const namespace = namespaces.get(entry.settingsNs)
       const configured = namespace !== undefined
@@ -378,6 +408,7 @@ export class SettingsService {
       credentials,
       protocols: protocolChoicesFromSchema(namespaces.get('llm-pi-ai')?.schema),
       ...permissionDefault === undefined ? {} : { permissionDefault },
+      ...busyEnter === undefined ? {} : { busyEnter },
       ...host === undefined ? {} : { host },
     }
   }
@@ -498,5 +529,37 @@ export class SettingsService {
       return { ok: false, text: messageOf(error) }
     }
     return { ok: true }
+  }
+
+  /** 写繁忙时 Enter 键行为（ui-conversation namespace busyEnter；conflict = revision 失配）。 */
+  async selectBusyEnter(behavior: BusyEnterBehavior, expectedRevision: number): Promise<SettingsWriteResult> {
+    const client = this.requireClient()
+    try {
+      await client.call('settings.mutate', {
+        ns: CONVERSATION_SETTINGS_NAMESPACE,
+        ops: [{ op: 'set', path: [BUSY_ENTER_FIELD], value: behavior }],
+        expectedRevision,
+      })
+    } catch (error) {
+      if (rpcErrorCode(error) === 'settings-conflict') {
+        return { ok: false, text: '配置已被其它编辑修改，已刷新，请重试', conflict: true }
+      }
+      return { ok: false, text: messageOf(error) }
+    }
+    return { ok: true }
+  }
+
+  /** 读取 ui-conversation.busyEnter（best-effort：服务未就绪/解析失败回落 queue）。 */
+  async loadBusyEnter(): Promise<BusyEnterBehavior> {
+    try {
+      const client = this.wire()
+      if (!client) return DEFAULT_BUSY_ENTER_BEHAVIOR
+      const describe = await client.call<SettingsDescribeResult>('settings.describe', {})
+      const ns = describe.namespaces.find((view) => view.ns === CONVERSATION_SETTINGS_NAMESPACE)
+      if (ns === undefined) return DEFAULT_BUSY_ENTER_BEHAVIOR
+      return getPath(ns.value, [BUSY_ENTER_FIELD]) === 'steer' ? 'steer' : 'queue'
+    } catch {
+      return DEFAULT_BUSY_ENTER_BEHAVIOR
+    }
   }
 }

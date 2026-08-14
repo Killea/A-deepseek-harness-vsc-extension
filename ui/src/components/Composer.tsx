@@ -4,6 +4,7 @@ import type {
   AtCandidatesView,
   AtRefPayload,
   CommandDescriptorView,
+  ComposerSubmitGesture,
   PermissionSelectView,
   SessionModelsView,
   SkillsSnapshot,
@@ -32,7 +33,7 @@ interface ComposerProps {
   onTextChange: (text: string) => void
   /** Incremented only after the owning service action is accepted. */
   commitSeq: number
-  onSend: (text: string) => void
+  onSend: (text: string, gesture: ComposerSubmitGesture) => void
   onCancel: () => void
   /** @ 菜单打开 → 扩展侧枚举候选。 */
   onAtOpen: () => void
@@ -217,8 +218,7 @@ export function Composer({
     return ws === -1 ? 'execute' : 'send'
   }
 
-  const send = (): void => {
-    if (running) return // 运行锁：运行期间保留草稿、禁止发送（停止按钮仍为逃生口）
+  const send = (gesture: ComposerSubmitGesture): void => {
     const value = text.trim()
     if (!value) return
     const decision = adjudicate(value)
@@ -227,8 +227,13 @@ export function Composer({
       return
     }
     if (decision === 'send') {
-      onSend(value)
-    } else if (decision === 'execute') {
+      // 普通消息：手势透传，扩展侧按 running + busyEnter 解析 queue/steer。
+      onSend(value, gesture)
+      return
+    }
+    // 运行锁：/ 命令、/model、/permission 等会话动作在运行期间冻结（不经 busy-enter 路径）。
+    if (running) return
+    if (decision === 'execute') {
       onCommandExecute(value)
     } else if (decision === 'model') {
       // 裸 /model → 打开模型弹出层（draft 保留 `/model`，选中后清空）。
@@ -441,7 +446,7 @@ export function Composer({
         return
       }
       closeMenu()
-      send()
+      send('enter')
       return
     }
     const span = menu.span ?? { start: 0, end: text.length }
@@ -547,7 +552,7 @@ export function Composer({
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      send()
+      send(e.ctrlKey || e.metaKey ? 'accelerated' : 'enter')
       return
     }
     // 空格 claim（对齐 dsh matchSpace）：行首 `/name` 后按空格 → `/name ` + hint。
@@ -757,7 +762,7 @@ export function Composer({
               className="input-icon-button flex size-6 items-center justify-center rounded-xs text-icon-foreground"
               title="发送"
               disabled={inputDisabled || serviceDisabled || modelSubmitting || text.trim().length === 0}
-              onClick={send}
+              onClick={() => send('enter')}
             >
               <IconSendOutline16 size={15} />
             </button>

@@ -145,12 +145,14 @@ export class SessionService {
     this.archivedSessionIds = [...ids]
   }
 
-  /** Send a text prompt to a session (D2 default: plain text only). */
-  async prompt(sessionId: string, text: string, signal?: AbortSignal): Promise<PromptResult> {
+  /** Send a text prompt to a session (D2 default: plain text only).
+   *  @param mode - 'queue' appends after the current turn; 'steer' interrupts it
+   *  (busy-Enter 偏好解析后透传；dsh 对非运行态 steer 尽力退化为下一条唤醒 Queue 轮)。 */
+  async prompt(sessionId: string, text: string, mode: 'queue' | 'steer' = 'queue', signal?: AbortSignal): Promise<PromptResult> {
     const client = this.requireClient()
     return await client.call<PromptResult>('session.prompt', {
       sessionId,
-      mode: 'queue',
+      mode,
       content: [{ type: 'text', text }],
     }, signal)
   }

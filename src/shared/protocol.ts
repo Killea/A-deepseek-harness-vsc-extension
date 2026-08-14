@@ -65,7 +65,7 @@ export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'newSession'; navigationId?: number; occupiedBlankSessionIds?: string[] }
   | { type: 'selectSession'; sessionId: string; navigationId: number }
-  | { type: 'send'; sessionId: string | null; requestId: number; text: string; occupiedBlankSessionIds?: string[] }
+  | { type: 'send'; sessionId: string | null; requestId: number; text: string; gesture?: ComposerSubmitGesture; occupiedBlankSessionIds?: string[] }
   // 所有会话级操作在发起时显式绑定目标，扩展侧不得用当前选中会话重写。
   | { type: 'cancel'; sessionId: string }
   | { type: 'archiveSession'; sessionId: string }
@@ -103,6 +103,8 @@ export type WebviewToExtensionMessage =
   | { type: 'settingsDiscoverModels'; id: number; probe: SettingsProbe }
   // 「通用」页：写默认权限模式（settings.mutate permission namespace defaultPreset）。
   | { type: 'settingsSelectPermissionDefault'; id: number; preset: string; expectedRevision: number }
+  // 「通用」页：写繁忙时 Enter 键行为（settings.mutate ui-conversation namespace busyEnter）。
+  | { type: 'settingsSelectBusyEnter'; id: number; behavior: BusyEnterBehavior; expectedRevision: number }
   // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 weinibuliu.dsh-vsc.dshPath → 重启服务。
   | { type: 'settingsPickDshPath' }
   // M6: 引导页「重试」：error 态重启 dsh 服务（不经文件选择器，沿用现有 launcher）。
@@ -485,6 +487,22 @@ export interface PermissionDefaultView {
   revision: number
 }
 
+/** 繁忙时 Enter 键行为（对齐 dsh ui-conversation.busyEnter：queue 排队 / steer 插话）。 */
+export type BusyEnterBehavior = 'queue' | 'steer'
+
+/** composer 键盘提交手势：普通 Enter 或 Cmd/Ctrl+Enter。 */
+export type ComposerSubmitGesture = 'enter' | 'accelerated'
+
+/** 繁忙时 Enter 键行为（ui-conversation settings namespace）视图：「通用」页写 busyEnter 用。 */
+export interface BusyEnterView {
+  /** settings 是否可写（只读 provider 时禁用）。 */
+  writable: boolean
+  /** 当前 busyEnter（namespace/字段缺席回落 queue）。 */
+  currentValue: BusyEnterBehavior
+  /** ui-conversation namespace 的 user 层 revision（写回 expectedRevision）。 */
+  revision: number
+}
+
 // ---- M4b: todo 计划条（todos 投影；镜像 dsh-session TodoItem，契约跟随）----
 
 /**
@@ -592,6 +610,8 @@ export interface SettingsPanelView {
   host?: HostDescribeView
   /** 「通用」页默认权限模式（permission namespace；缺席 = 能力缺席 → 隐藏行）。 */
   permissionDefault?: PermissionDefaultView
+  /** 「通用」页繁忙时 Enter 键行为（ui-conversation namespace；缺席 = 回落 queue）。 */
+  busyEnter?: BusyEnterView
 }
 
 /** host.describe 视图（dsh 包页：host 运行时事实）。 */
