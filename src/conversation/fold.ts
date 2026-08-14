@@ -393,6 +393,28 @@ function argsSummary(name: string, args: Record<string, unknown> | null): ToolFi
   return undefined
 }
 
+/** M5b: 首行（折叠态摘要取第一行，避免多行命令破坏单行折叠）。 */
+function firstLine(text: string): string {
+  const index = text.indexOf('\n')
+  return index === -1 ? text : text.slice(0, index)
+}
+
+/** M5b: 命令/搜索摘要（bash/pwsh/grep/glob 显式白名单，按工具名硬编码）。
+ *  对齐 dsh web 折叠行：bash/pwsh 用 `description`（缺省回退 `command`），grep/glob 用 `pattern`；
+ *  字段缺失 → null（折叠态回退「仅工具名」）。 */
+function commandSummary(name: string, args: Record<string, unknown> | null): string | null {
+  if (args === null) return null
+  if (name === 'bash' || name === 'pwsh') {
+    const text = readString(args, 'description') ?? readString(args, 'command')
+    return text === null ? null : firstLine(text)
+  }
+  if (name === 'grep' || name === 'glob') {
+    const pattern = readString(args, 'pattern')
+    return pattern === null ? null : firstLine(pattern)
+  }
+  return null
+}
+
 // ---- M5: read/write/edit 结果正文视图（结构化渲染，替代模型面 envelope 原文）----
 
 /** M5: 提取 read 的 meta 行窗口（{number, text} 形状）；不可读 → null。 */
@@ -659,7 +681,9 @@ export class ConversationFold {
       }
       case 'tool/call': {
         const data = event.data as ToolCallData
-        const summary = argsSummary(data.name, parseArgs(data.arguments))
+        const args = parseArgs(data.arguments)
+        const summary = argsSummary(data.name, args)
+        const commandSummaryText = commandSummary(data.name, args)
         this.items.push({
           kind: 'tool',
           callId: data.callId,
@@ -668,6 +692,7 @@ export class ConversationFold {
           outcome: null,
           time: event.time,
           ...(summary === undefined ? {} : { summary }),
+          ...(commandSummaryText === null ? {} : { commandSummary: commandSummaryText }),
         })
         this.revision++
         break

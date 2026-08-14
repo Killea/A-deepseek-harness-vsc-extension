@@ -183,10 +183,13 @@ export type ConversationItem =
       args: string | null
       outcome: { kind: 'success' | 'error'; text?: string } | null
       time: number
-      // M5: read/write 卡片摘要（fold 从 wire 派生；缺席 = 非文件工具或数据不可得）。
+      // M5: read/write/edit 卡片摘要（fold 从 wire 派生；缺席 = 非文件工具或数据不可得）。
       summary?: ToolFileSummary
-      // M5: read/write 结果正文视图（fold 解析；缺席 = 无结构化正文，显示 outcome 文本）。
+      // M5: read/write/edit 结果正文视图（fold 解析；缺席 = 无结构化正文，显示 outcome 文本）。
       view?: ToolResultView
+      // M5b: 命令/搜索工具（bash/pwsh/grep/glob）折叠态摘要（fold 从 call 侧 args 派生；
+      // 缺席 = 非白名单工具或 args 字段不可得 → 折叠态回退「仅工具名」）。
+      commandSummary?: string
     }
 
 /** Why a turn ended (TurnEndReasonMap mirror; extension-safe subset). */

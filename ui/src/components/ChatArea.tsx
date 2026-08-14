@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ConversationItem, ToolResultView } from '../../../src/shared/protocol.ts'
 import { FencedText } from './FencedText.tsx'
 import {
+  IconApiOutline14,
   IconBrowseOutline16,
   IconCheckOutline14,
   IconChevronDownOutline14,
   IconChevronRightOutline14,
   IconEditOutline16,
   IconLoadingOutline16,
+  IconSearchOutline16,
   IconWarningOutline16,
 } from '../../icons/index.tsx'
 
@@ -353,11 +355,15 @@ function formatKb(bytes: number): string {
   return kb >= 100 ? String(Math.round(kb)) : (Math.round(kb * 10) / 10).toString()
 }
 
-/** M5: 摘要动词（read/write/edit 本地化；未知回退工具名）。 */
+/** M5: 摘要动词（read/write/edit/bash/pwsh/grep/glob 本地化；未知回退工具名）。 */
 function summaryVerb(name: string | null): string {
   if (name === 'read') return 'Read'
   if (name === 'write') return 'Write'
   if (name === 'edit') return 'Edit'
+  if (name === 'bash') return 'Bash'
+  if (name === 'pwsh') return 'Pwsh'
+  if (name === 'grep') return 'Grep'
+  if (name === 'glob') return 'Glob'
   return name ?? '…'
 }
 
@@ -398,10 +404,12 @@ function firstLine(text: string): string {
   return index === -1 ? text : text.slice(0, index)
 }
 
-/** M5b: 工具类型图标（对齐参考 UI：read 浏览、write/edit 编辑）；未知工具无图标。 */
+/** M5b: 工具类型图标（对齐 dsh web：read 浏览、write/edit 编辑、bash/pwsh 终端、grep/glob 搜索）；未知工具无图标。 */
 function toolIcon(name: string | null): ReactNode {
   if (name === 'read') return <IconBrowseOutline16 size={14} className="shrink-0 text-description" />
   if (name === 'write' || name === 'edit') return <IconEditOutline16 size={14} className="shrink-0 text-description" />
+  if (name === 'bash' || name === 'pwsh') return <IconApiOutline14 size={14} className="shrink-0 text-description" />
+  if (name === 'grep' || name === 'glob') return <IconSearchOutline16 size={14} className="shrink-0 text-description" />
   return null
 }
 
@@ -466,6 +474,13 @@ function ToolCardView({
                 {item.summary.bytes ? ` | ${formatKb(item.summary.bytes)}kb` : ''})
               </span>
             ) : null}
+          </span>
+        ) : item.commandSummary !== undefined ? (
+          // M5b: 命令/搜索工具（bash/pwsh/grep/glob）折叠态 = Title · 摘要；单行、过长省略号截断不换行。
+          <span className="min-w-0 truncate font-mono text-xs" title={item.commandSummary}>
+            <span className="shrink-0">{summaryVerb(item.name)}</span>
+            <span className="shrink-0 text-description" aria-hidden> · </span>
+            <span className="min-w-0">{item.commandSummary}</span>
           </span>
         ) : (
           // M5b: 通用工具折叠态 = 仅工具名（args 移入展开态）。
