@@ -184,7 +184,7 @@ function CommandItemView({ item }: { item: Extract<ConversationItem, { kind: 'co
         <code className="truncate font-mono text-xs">{label}</code>
       </div>
       {item.outcome?.text ? (
-        <pre className="mt-1 max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">
+        <pre className="mt-1 max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">
           {item.outcome.text}
         </pre>
       ) : null}
@@ -247,7 +247,7 @@ function ContextBody({
   if (body === null) {
     return (
       <div className="mt-1 space-y-1">
-        <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">{item.text}</pre>
+        <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">{item.text}</pre>
         <SourceFields source={item.source} />
       </div>
     )
@@ -283,7 +283,7 @@ function ContextBody({
             {body.sections.map((section, index) => (
               <div key={index} className="space-y-0.5">
                 <dt className="font-mono text-xs text-badge-foreground">{section.name}</dt>
-                <dd className="whitespace-pre-wrap text-xs leading-normal text-description">{section.text}</dd>
+                <dd className="whitespace-pre-wrap break-words text-xs leading-normal text-description">{section.text}</dd>
               </div>
             ))}
           </dl>
@@ -301,13 +301,13 @@ function ContextBody({
             ))}
           </ul>
           {item.text ? (
-            <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">{item.text}</pre>
+            <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">{item.text}</pre>
           ) : null}
         </div>
       )
     case 'notice':
       return (
-        <pre className="mt-1 max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">
+        <pre className="mt-1 max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">
           {item.text}
         </pre>
       )
@@ -315,7 +315,7 @@ function ContextBody({
       return (
         <div className="mt-1 space-y-1">
           <p className="text-[11px] text-description">来自会话 {body.senderSessionId}</p>
-          <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">
+          <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">
             {item.text}
           </pre>
         </div>
@@ -337,7 +337,7 @@ function ContextBody({
             ))}
           </ul>
           {item.text ? (
-            <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal text-description">{item.text}</pre>
+            <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">{item.text}</pre>
           ) : null}
         </div>
       )
@@ -570,7 +570,7 @@ function ToolCardView({
             // 无结构化正文（错误结果或未知工具）：保留模型面文本。
             <pre
               className={[
-                'max-h-[160px] overflow-y-auto whitespace-pre-wrap text-xs leading-normal',
+                'max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal',
                 error ? 'text-error' : 'text-description',
               ].join(' ')}
             >

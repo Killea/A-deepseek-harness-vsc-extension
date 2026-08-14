@@ -438,7 +438,7 @@ export default function App() {
   }
 
   return (
-    <div className="grid h-full grid-rows-[1fr_auto] overflow-hidden">
+    <div className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] overflow-hidden">
       <div className="flex min-h-0 flex-col overflow-hidden">
         {/* 预览版清理：ready（正常态）不占 header，非 ready（错误/重连/启动中/停止）仍显示。 */}
         {status.status !== 'ready' && <StatusBar status={status.status} detail={status.detail} />}

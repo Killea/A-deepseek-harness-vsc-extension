@@ -142,7 +142,7 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
   }
 
   return (
-    <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
+    <div ref={rootRef} className="relative min-w-0" onKeyDown={onKeyDown}>
       <button
         type="button"
         className="input-icon-button flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-xs text-description"
@@ -151,12 +151,12 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
         onClick={() => (open ? close() : (setOpen(true), setIndex(0)))}
       >
         {permissionGlyph(value.currentValue)}
-        <span className="max-w-[140px] truncate">{currentLabel}</span>
+        <span className="min-w-0 max-w-[140px] truncate">{currentLabel}</span>
         <IconChevronDownOutline14 size={14} />
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 z-20 mb-1 w-72 overflow-hidden rounded-xs border border-border-panel bg-background shadow-lg">
+        <div className="absolute bottom-full right-0 z-20 mb-1 w-72 max-w-[calc(100vw_-_2rem)] overflow-hidden rounded-xs border border-border-panel bg-background shadow-lg">
           <div className="max-h-[240px] overflow-y-auto py-1">
             {options.map((option, i) => {
               const selected = option.value === value.currentValue

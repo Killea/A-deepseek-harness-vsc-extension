@@ -176,11 +176,11 @@ export function ModelSelect({ models, onOpen, onSelect, disabled }: ModelSelectP
   }
 
   return (
-    <div ref={rootRef} className="flex items-center gap-2" onKeyDown={onKeyDown}>
+    <div ref={rootRef} className="flex min-w-0 flex-wrap items-center gap-2" onKeyDown={onKeyDown}>
       {routableBlocked && (
-        <span className="mr-auto text-xs text-error">当前模型不可用，请先选择模型</span>
+        <span className="w-full text-xs text-error">当前模型不可用，请先选择模型</span>
       )}
-      <div className="relative">
+      <div className="relative min-w-0">
         <button
           type="button"
           className="input-icon-button flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-xs text-description"
@@ -188,12 +188,12 @@ export function ModelSelect({ models, onOpen, onSelect, disabled }: ModelSelectP
           disabled={disabled}
           onClick={() => (open ? close() : show())}
         >
-          <span className="max-w-[220px] truncate">{triggerLabel}</span>
+          <span className="min-w-0 max-w-[220px] truncate">{triggerLabel}</span>
           <IconChevronDownOutline14 size={14} />
         </button>
 
         {open && (
-          <div className="absolute bottom-full right-0 z-20 mb-1 w-72 overflow-hidden rounded-xs border border-border-panel bg-background shadow-lg">
+          <div className="absolute bottom-full right-0 z-20 mb-1 w-72 max-w-[calc(100vw_-_2rem)] overflow-hidden rounded-xs border border-border-panel bg-background shadow-lg">
             {pane === 'root' && (
               <div className="py-1">
                 <Cell

@@ -225,7 +225,7 @@ function PlanReviewCardView({
           </>
         }
       >
-        <pre className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap text-sm leading-5">{item.plan}</pre>
+        <pre className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-5">{item.plan}</pre>
       </CardShell>
     </div>
   )
@@ -269,11 +269,11 @@ function QuestionEditor({
           {q.header !== undefined ? (
             <div className="text-[11px] text-description">{q.header}</div>
           ) : null}
-          <div className="font-medium">{q.question}</div>
+          <div className="break-words font-medium">{q.question}</div>
         </div>
       </div>
       {q.detail !== undefined ? (
-        <div className="mt-1 whitespace-pre-wrap text-xs text-description">{q.detail}</div>
+        <div className="mt-1 break-words whitespace-pre-wrap text-xs text-description">{q.detail}</div>
       ) : null}
       {q.options !== undefined && q.options.length > 0 ? (
         <div className="mt-2 space-y-1">

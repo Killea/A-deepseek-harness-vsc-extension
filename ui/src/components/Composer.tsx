@@ -761,7 +761,7 @@ export function Composer({
       </div>
       {/* 输入框下方的席位（右对齐）：权限席位 + 模型席位并列。running/未就绪时禁用，
           routable=false 不锁模型席位（作为恢复入口）。 */}
-      <div className="flex items-center justify-end gap-2 px-3.5 pb-1">
+      <div className="flex flex-wrap items-center justify-end gap-2 px-3.5 pb-1">
         <PermissionSelect
           value={permissions}
           onSelect={onPermissionSelect}
