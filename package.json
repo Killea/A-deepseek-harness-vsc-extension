@@ -75,7 +75,7 @@
       },
       {
         "command": "weinibuliu.dsh-vsc.openInBrowser",
-        "title": "dsh: Open Web UI in Browser"
+        "title": "dsh: Open WebUI in Browser"
       },
       {
         "command": "weinibuliu.dsh-vsc.newSession",
