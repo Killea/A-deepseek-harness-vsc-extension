@@ -91,7 +91,7 @@
       }
     }
   },
-  "packageManager": "pnpm@11.10.0",
+  "packageManager": "pnpm@11.21.0",
   "scripts": {
     "build": "pnpm run build:webview && node esbuild.mjs",
     "build:webview": "vite build",
