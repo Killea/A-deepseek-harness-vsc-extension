@@ -49,10 +49,29 @@
         }
       ]
     },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "weinibuliu.dsh-vsc.focus.from-editor",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "when": "false",
+          "command": "weinibuliu.dsh-vsc.focus.from-editor"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "weinibuliu.dsh-vsc.focus",
         "title": "dsh: Open Chat"
+      },
+      {
+        "command": "weinibuliu.dsh-vsc.focus.from-editor",
+        "title": "Open Deepseek Harness",
+        "icon": "ui/favicon.svg"
       },
       {
         "command": "weinibuliu.dsh-vsc.openInBrowser",

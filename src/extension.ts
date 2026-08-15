@@ -298,6 +298,12 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.commands.executeCommand("weinibuliu-dsh-vsc.chat.focus");
     }),
     vscode.commands.registerCommand(
+      "weinibuliu.dsh-vsc.focus.from-editor",
+      async () => {
+        await vscode.commands.executeCommand("weinibuliu-dsh-vsc.chat.focus");
+      },
+    ),
+    vscode.commands.registerCommand(
       "weinibuliu.dsh-vsc.openInBrowser",
       async () => {
         const url = dsh.baseUrl;
