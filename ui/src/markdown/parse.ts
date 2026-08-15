@@ -11,14 +11,14 @@
  * that must not emit math.
  */
 
-import type { Root } from 'mdast'
-import { fromMarkdown } from 'mdast-util-from-markdown'
-import { gfmFromMarkdown } from 'mdast-util-gfm'
-import { mathFromMarkdown } from 'mdast-util-math'
-import { gfm } from 'micromark-extension-gfm'
-import { math } from 'micromark-extension-math'
-import { cjkFriendlyStrong } from './cjkFriendlyStrong.ts'
-import { mathCompatibility } from './mathCompatibility.ts'
+import type { Root } from "mdast";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { gfmFromMarkdown } from "mdast-util-gfm";
+import { mathFromMarkdown } from "mdast-util-math";
+import { gfm } from "micromark-extension-gfm";
+import { math } from "micromark-extension-math";
+import { cjkFriendlyStrong } from "./cjkFriendlyStrong.ts";
+import { mathCompatibility } from "./mathCompatibility.ts";
 
 /**
  * Parse GFM markdown without TeX math.
@@ -29,7 +29,7 @@ export function parseGfm(text: string): Root {
   return fromMarkdown(text, {
     extensions: [gfm(), cjkFriendlyStrong()],
     mdastExtensions: [gfmFromMarkdown()],
-  })
+  });
 }
 
 /**
@@ -42,7 +42,7 @@ export function parseGfmWithMath(text: string): Root {
   return fromMarkdown(text, {
     extensions: [gfm(), cjkFriendlyStrong(), mathCompatibility(), math()],
     mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown()],
-  })
+  });
 }
 
 /**
@@ -56,9 +56,14 @@ export function parseGfmWithMath(text: string): Root {
  * @returns The mdast root.
  */
 export function parseGfmWithMathStreaming(text: string): Root {
-  const mathInline = math()
+  const mathInline = math();
   return fromMarkdown(text, {
-    extensions: [gfm(), cjkFriendlyStrong(), mathCompatibility(), { text: mathInline.text }],
+    extensions: [
+      gfm(),
+      cjkFriendlyStrong(),
+      mathCompatibility(),
+      { text: mathInline.text },
+    ],
     mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown()],
-  })
+  });
 }
