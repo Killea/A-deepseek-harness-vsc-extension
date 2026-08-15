@@ -114,6 +114,8 @@ export type WebviewToExtensionMessage =
   | { type: 'settingsRestartDsh' }
   // M6: 页脚「编辑 settings.yaml」→ 扩展侧在当前 VS Code 窗口打开该文件。
   | { type: 'openSettingsYaml' }
+  // M6: 关于页「打开扩展设置」→ VS Code Settings，并过滤到本扩展贡献的设置。
+  | { type: 'openExtensionSettings' }
   // M6: 页脚「在 dsh web 中打开」→ 执行扩展侧 weinibuliu.dsh-vsc.openInBrowser 命令。
   | { type: 'openInBrowser' }
   // M6: 关于页「repo 链接」→ 扩展侧在系统浏览器打开指定 URL。
@@ -580,7 +582,14 @@ export type PendingAnswer =
 
 /** 嗅探到的 dsh 可执行文件（discovery 结果投影；未找到 = found:false）。 */
 export type DshLocationView =
-  | { found: true; command: string; source: 'config' | 'path' | 'npm-prefix' | 'npx'; version: string }
+  | { found: true; kind: 'launcher'; command: string; source: 'config' | 'path' | 'npm-prefix' | 'npx'; version: string }
+  | {
+      found: true
+      kind: 'endpoint'
+      baseUrl: string
+      ownership: 'external-specified' | 'external-discovered' | 'external-managed-port' | 'managed'
+      version: string
+    }
   | { found: false }
 
 /** 设置面板整页视图（webview 纯渲染的数据面）。 */

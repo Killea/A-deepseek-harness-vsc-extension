@@ -1,6 +1,7 @@
 /**
- * dsh 发现 (D9/D11.4): locate the user's installed `dsh` executable and gate
- * its version against the plugin's declared floor. Probe order:
+ * dsh 发现 (D9/D11.4): locate the user's installed `dsh` executable and record
+ * its version. Compatibility rejection is reserved until DSH exposes a
+ * trustworthy running-instance version. Probe order:
  *   1. explicit path from configuration (`weinibuliu.dsh-vsc.dshPath`)
  *   2. PATH scan (`dsh` / `dsh.cmd` / `dsh.exe` / `dsh.ps1`)
  *   3. npm global prefix bin dir
@@ -11,7 +12,6 @@
 import { accessSync, constants } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { delimiter, join } from 'node:path'
-import { isAtLeast } from './version.ts'
 
 /** Candidate executable names per platform. */
 function candidateNames(): string[] {
@@ -120,13 +120,11 @@ function fromNpx(): DshLauncher {
 
 /**
  * Discover the dsh launcher. Throws a user-facing Error describing the probe
- * chain when nothing is found, and throws when the found dsh is below the
- * minimum version.
- * @param options.minimumVersion - version floor, e.g. `0.1.0-rc.6`.
+ * chain when nothing is found. The version is returned as diagnostic data;
+ * compatibility rejection is intentionally a TODO.
  * @param options.explicitPath - `weinibuliu.dsh-vsc.dshPath` override, if set.
  */
 export async function discoverDsh(options: {
-  minimumVersion: string
   explicitPath?: string | null
 }): Promise<DshLauncher> {
   const explicit = options.explicitPath?.trim()
@@ -145,12 +143,6 @@ export async function discoverDsh(options: {
       )
     }
     throw new Error(`找到 dsh (${launcher.command}) 但无法执行 --version 探测。`)
-  }
-
-  if (!isAtLeast(version, options.minimumVersion)) {
-    throw new Error(
-      `dsh 版本过低: ${version} < 要求的 ${options.minimumVersion}。请升级: npm install -g @deepseek-ai/dsh@latest`,
-    )
   }
 
   return { ...launcher, version }

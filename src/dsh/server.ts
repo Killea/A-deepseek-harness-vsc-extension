@@ -1,8 +1,8 @@
 /**
- * dsh web 服务生命周期 (D4): spawn `dsh web --port 0` as a child process,
+ * dsh web 服务生命周期 (D4): spawn `dsh web --port <port>` as a child process,
  * parse the ready URL line from stdout, and stop it on demand with SIGTERM
- * (5s grace, then SIGKILL). The route's contract: window close → SIGTERM
- * with exit code 0; sessions are persisted by dsh and survive the process.
+ * (5s grace, then SIGKILL). The Runtime Broker invokes stop after the final
+ * window lease ends; sessions are persisted by dsh and survive the process.
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -19,7 +19,9 @@ const GRACE_MS = 5_000
 
 export interface DshServerOptions {
   launcher: DshLauncher
-  /** Extra argv passed before `web --port 0` (reserved; empty in v1). */
+  /** Requested listen port. Pass 0 only in tests/tools that want an ephemeral port. */
+  port?: number
+  /** Extra argv passed before `web --port <port>` (reserved; empty in v1). */
   extraArgs?: readonly string[]
   /** Child environment; defaults to process.env (shared ~/.dsh per D4). */
   env?: NodeJS.ProcessEnv
@@ -32,7 +34,7 @@ export interface DshServerOptions {
 export interface StartedDshServer {
   /** The loopback base URL, e.g. `http://127.0.0.1:38678`. */
   baseUrl: string
-  /** The OS-assigned port. */
+  /** The bound port parsed from DSH's ready URL. */
   port: number
   /** Send SIGTERM, wait up to GRACE_MS, then SIGKILL; resolves the exit code. */
   stop(): Promise<number | null>
@@ -43,13 +45,13 @@ export interface StartedDshServer {
 }
 
 /**
- * Spawn `dsh web --port 0` and await the ready URL line.
+ * Spawn `dsh web --port <port>` and await the ready URL line.
  * @throws on spawn failure, boot timeout, or early exit before ready.
  */
 export function startDshWeb(options: DshServerOptions): Promise<StartedDshServer> {
   return new Promise((resolve, reject) => {
-    const { launcher, extraArgs = [] } = options
-    const args = [...launcher.args, ...extraArgs, 'web', '--port', '0']
+    const { launcher, extraArgs = [], port = 0 } = options
+    const args = [...launcher.args, ...extraArgs, 'web', '--port', String(port)]
     // Windows batch/shim launchers (dsh.cmd, dsh.ps1, npx.cmd) need a shell;
     // only a real .exe can be spawned directly. An absolute .cmd path still
     // needs the shell — spawning it directly fails with EINVAL.
@@ -74,7 +76,7 @@ export function startDshWeb(options: DshServerOptions): Promise<StartedDshServer
     const bootTimer = setTimeout(() => {
       if (settled) return
       settled = true
-      child.kill('SIGTERM')
+      terminateChild(child, false)
       reject(new Error(
         `dsh web 启动超时(${(options.bootTimeoutMs ?? BOOT_TIMEOUT_MS) / 1000}s)，未收到就绪行。\nstdout:\n${stdoutBuf}\nstderr:\n${stderrBuf}`,
       ))
@@ -82,7 +84,7 @@ export function startDshWeb(options: DshServerOptions): Promise<StartedDshServer
 
     child.stdout?.setEncoding('utf8')
     child.stdout?.on('data', (chunk: string) => {
-      stdoutBuf += chunk
+      if (!settled) stdoutBuf += chunk
       options.onStdout?.(chunk)
       if (!settled) {
         const match = URL_LINE_RE.exec(stdoutBuf)
@@ -99,7 +101,7 @@ export function startDshWeb(options: DshServerOptions): Promise<StartedDshServer
 
     child.stderr?.setEncoding('utf8')
     child.stderr?.on('data', (chunk: string) => {
-      stderrBuf += chunk
+      if (!settled) stderrBuf += chunk
       options.onStderr?.(chunk)
     })
 
@@ -158,13 +160,28 @@ function makeServer(
         stoppedResolve?.(child.exitCode)
         return await stopped
       }
-      child.kill('SIGTERM')
+      terminateChild(child, false)
       const grace = setTimeout(() => {
-        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+        if (child.exitCode === null && child.signalCode === null) terminateChild(child, true)
       }, GRACE_MS)
       const code = await stopped
       clearTimeout(grace)
       return code
     },
   }
+}
+
+/** Stop the whole shim/process tree on Windows; signal the direct child elsewhere. */
+function terminateChild(child: ChildProcess, force: boolean): void {
+  if (process.platform !== 'win32' || child.pid === undefined) {
+    child.kill(force ? 'SIGKILL' : 'SIGTERM')
+    return
+  }
+  const killer = spawn(
+    'taskkill',
+    ['/pid', String(child.pid), '/t', ...(force ? ['/f'] : [])],
+    { stdio: 'ignore', windowsHide: true },
+  )
+  killer.once('error', () => undefined)
+  killer.unref()
 }

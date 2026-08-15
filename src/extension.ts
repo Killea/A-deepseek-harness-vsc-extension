@@ -1,6 +1,6 @@
 /**
  * dsh-on-vsc extension entry (M1 骨架 + M2 协议验证 + M3 @ 文件选择 + M3b @ 与 / 命令, §10):
- *   - dsh discovery + spawn `dsh web --port 0` + URL parse
+ *   - global dsh discovery/Broker + fixed managed port + external URL mode
  *   - wire client (workspace.list / session.create / session.prompt / session.cancel / session.history)
  *   - WebviewView: session list + streaming chat (mux events folded into the
  *     conversation surface; history replay on select; cancel interruption)
@@ -27,13 +27,19 @@ export function activate(context: vscode.ExtensionContext): void {
   const log = (line: string): void => output.appendLine(line)
 
   const config = vscode.workspace.getConfiguration('weinibuliu.dsh-vsc')
-  const minimumVersion = config.get<string>('minDshVersion', '0.1.0-rc.6')
   const explicitPath = config.get<string | null>('dshPath', null)
+  const externalUrl = config.get<string | null>('externalUrl', null)
+  const discoveryPort = config.get<number>('discoveryPort', 3080)
+  const managedPort = config.get<number>('managedPort', 30800)
   const autoStart = config.get<boolean>('autoStart', true)
 
   const dsh = new DshService({
-    minimumVersion,
     explicitPath,
+    externalUrl,
+    discoveryPort,
+    managedPort,
+    globalStoragePath: context.globalStorageUri.fsPath,
+    brokerScript: context.asAbsolutePath('dist/dsh-runtime-broker.js'),
     onStatus: (status: DshStatus, detail?: string) => {
       log(`dsh status: ${status}${detail ? ` — ${detail}` : ''}`)
       provider.post({ type: 'serviceStatus', status, detail })
@@ -69,12 +75,15 @@ export function activate(context: vscode.ExtensionContext): void {
     status: dsh.statusValue,
     ...lastStatusDetail === undefined ? {} : { statusDetail: lastStatusDetail },
     launcher: dsh.launcherValue,
+    baseUrl: dsh.baseUrl,
+    ownership: dsh.ownershipValue,
+    reportedVersion: dsh.reportedVersionValue,
     settingsYamlPath: deriveSettingsYamlPath(),
     extensionVersion: context.extension.packageJSON.version as string,
   })
 
-  // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 weinibuliu.dsh-vsc.dshPath（工作区优先，
-  // 无工作区则全局）→ 重启 dsh 服务（status 翻转驱动面板切页）。
+  // M6: 引导页「选择 dsh 文件…」：全局实例的 launcher 只能使用机器级设置，
+  // 避免两个工作区窗口用不同路径争夺同一个管理端口。
   const pickDshPath = async (): Promise<void> => {
     const picked = await vscode.window.showOpenDialog({
       canSelectFiles: true,
@@ -87,11 +96,12 @@ export function activate(context: vscode.ExtensionContext): void {
     const pickedUri = picked[0]
     if (!pickedUri) return
     const path = pickedUri.fsPath
-    const target = vscode.workspace.workspaceFolders?.[0]
-      ? vscode.ConfigurationTarget.Workspace
-      : vscode.ConfigurationTarget.Global
     try {
-      await vscode.workspace.getConfiguration('weinibuliu.dsh-vsc').update('dshPath', path, target)
+      await vscode.workspace.getConfiguration('weinibuliu.dsh-vsc').update(
+        'dshPath',
+        path,
+        vscode.ConfigurationTarget.Global,
+      )
       await dsh.restart(path)
       void vscode.window.showInformationMessage(`dsh 路径已更新：${path}`)
     } catch (error) {

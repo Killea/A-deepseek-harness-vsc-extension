@@ -26,6 +26,29 @@ describe('launcherNeedsShell', () => {
 })
 
 describe('startDshWeb', () => {
+  it('passes the configured fixed port to dsh web', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'dsh-vsc-server-port-'))
+    const launcherPath = join(dir, 'fake-dsh.cjs')
+    writeFileSync(launcherPath, [
+      "const index = process.argv.indexOf('--port')",
+      "process.stdout.write('dsh web: http://127.0.0.1:' + process.argv[index + 1] + '\\n')",
+      "process.on('SIGTERM', () => process.exit(0))",
+      'setInterval(() => undefined, 1000)',
+    ].join('\n'))
+    try {
+      const server = await startDshWeb({
+        launcher: { command: process.execPath, args: [launcherPath], source: 'path' },
+        port: 30_800,
+        bootTimeoutMs: 10_000,
+      })
+      expect(server.baseUrl).toBe('http://127.0.0.1:30800')
+      expect(server.port).toBe(30_800)
+      await server.stop()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it.skipIf(process.platform !== 'win32')(
     'spawns an absolute-path .cmd launcher without EINVAL',
     async () => {

@@ -27,6 +27,8 @@ export interface SettingsWire {
   selectBusyEnter(behavior: BusyEnterBehavior, expectedRevision: number): Promise<SettingsReply>
   /** 在当前 VS Code 窗口打开 settings.yaml（fire-and-forget）。 */
   openSettingsYaml(): void
+  /** 打开 VS Code 原生设置页，并过滤到本扩展贡献的 DSH 设置。 */
+  openExtensionSettings(): void
   refresh(): void
   pickDshPath(): void
   /** error 态重启 dsh 服务（不经文件选择器，沿用现有 launcher）。 */

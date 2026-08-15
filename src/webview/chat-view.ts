@@ -32,6 +32,7 @@ import type { SkillService } from '../services/skill-service.ts'
 import type { PendingInteractionService } from '../services/pending-interaction-service.ts'
 import type { SettingsService } from '../services/settings-service.ts'
 import type { DshLauncher } from '../dsh/discovery.ts'
+import type { DshOwnership } from '../services/dsh-service.ts'
 import { escapeHtml, getNonce, injectCsp, rewriteAssetUrls } from './html.ts'
 import { resolveOpenPath } from './open-file.ts'
 
@@ -46,6 +47,9 @@ export interface DshFacts {
   status: string
   statusDetail?: string
   launcher: DshLauncher | null
+  baseUrl: string | null
+  ownership: DshOwnership | null
+  reportedVersion: string | null
   settingsYamlPath: string
   extensionVersion: string
 }
@@ -370,6 +374,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         break
       case 'openSettingsYaml':
         await this.serveOpenSettingsYaml()
+        break
+      case 'openExtensionSettings':
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:weinibuliu.dsh-vsc')
         break
       case 'openInBrowser':
         void vscode.commands.executeCommand('weinibuliu.dsh-vsc.openInBrowser')
@@ -917,8 +924,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   async refreshSettings(): Promise<void> {
     const facts = this.dshFacts()
     const location = facts.launcher
-      ? { found: true as const, command: facts.launcher.command, source: facts.launcher.source, version: facts.launcher.version ?? '' }
-      : { found: false as const }
+      ? {
+          found: true as const,
+          kind: 'launcher' as const,
+          command: facts.launcher.command,
+          source: facts.launcher.source,
+          version: facts.launcher.version ?? '',
+        }
+      : facts.baseUrl && facts.ownership
+        ? {
+            found: true as const,
+            kind: 'endpoint' as const,
+            baseUrl: facts.baseUrl,
+            ownership: facts.ownership,
+            version: facts.reportedVersion ?? '',
+          }
+        : { found: false as const }
     try {
       const data = await this.settings.loadPanel()
       // 面板 join 成功即同步偏好缓存（composer 的 busy-enter 解析用）。
