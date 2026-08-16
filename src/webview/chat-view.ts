@@ -642,8 +642,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // 繁忙时 Enter 偏好 best-effort 加载（失败回落 queue，不阻塞重水合）。
     this.busyEnter = await this.settings.loadBusyEnter();
     await this.refreshSessions();
-    // 启动门失败页：webview 重载/首载时若已是终态（error/stopped），推送「关于」gate 面板数据。
-    if (facts.status === "error" || facts.status === "stopped")
+    // 面板数据：ready（供「无可用 Provider」引导页派生）或终态（error/stopped，供「关于」gate）
+    // 都推送；webview 重载/首载时据此重水合。
+    if (facts.status === "ready" || facts.status === "error" || facts.status === "stopped")
       await this.refreshSettings();
     const sessionId = this._selectedSessionId;
     if (!sessionId) return;

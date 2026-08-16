@@ -359,8 +359,9 @@ export function activate(context: vscode.ExtensionContext): void {
       });
     }
     // M6: 面板打开时随状态翻转刷新（ready → Models 页；error → 引导页）。
-    // 启动门失败页：终态（error/stopped）也推送面板，供「关于」gate 渲染。
-    if (provider.settingsOpen || status === "error" || status === "stopped")
+    // ready 也推送面板，供「无可用 Provider」引导页在首启/重连后就绪态派生；
+    // 终态（error/stopped）也推送面板，供「关于」gate 渲染。
+    if (provider.settingsOpen || status === "ready" || status === "error" || status === "stopped")
       void provider.refreshSettings();
   });
 

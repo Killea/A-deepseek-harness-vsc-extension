@@ -36,6 +36,8 @@ import { Composer } from './components/Composer.tsx'
 import { PendingDialog } from './components/PendingDialog.tsx'
 import { SettingsPage } from './components/settings/SettingsPage.tsx'
 import { AboutGate } from './components/settings/AboutGate.tsx'
+import { NoProviderGate } from './components/settings/NoProviderGate.tsx'
+import { noProviderReadiness } from './components/settings/readiness.ts'
 import { LoadingPage } from './components/LoadingPage.tsx'
 import type { SettingsReply, SettingsWire } from './components/settings/wire.ts'
 import { IconStopFill16 } from '../icons/index.tsx'
@@ -100,6 +102,9 @@ export default function App() {
   const [statsBySession, setStatsBySession] = useState<Record<string, UsageStatsView | null>>({})
   // M6: 设置面板视图切换 + 面板数据 + settingsReply 应答关联。
   const [view, setView] = useState<'chat' | 'settings'>('chat')
+  // 无可用 Provider 引导页的「稍后配置」暂离标记；仅在真正的重开（boot/终态）时重置，
+  // 使引导页「每次重开再现」而不在瞬态 reconnecting 上反复弹出。
+  const [gateDismissed, setGateDismissed] = useState(false)
   const [webviewVisible, setWebviewVisible] = useState(document.visibilityState === 'visible')
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanelView | null>(null)
   const replySeq = useRef(0)
@@ -263,6 +268,14 @@ export default function App() {
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [])
+
+  // 引导页暂离标记在真正的重开边界（boot/终态）重置；reconnecting/ready 不重置。
+  useEffect(() => {
+    const status = serviceStatus.status
+    if (status === 'discovering' || status === 'starting' || status === 'error' || status === 'stopped') {
+      setGateDismissed(false)
+    }
+  }, [serviceStatus.status])
 
   const post = useCallback((message: WebviewToExtensionMessage): void => {
     vscode.postMessage(message)
@@ -445,16 +458,10 @@ export default function App() {
   }, [activityBySession, selected, selectedSessionId, view, webviewVisible])
 
   // 启动门：dsh 未 ready（discovering/starting）整页 loading；终态失败（error/stopped）整页「关于」gate。
-  // 覆盖手动 view；ready/reconnecting 回到手动 view（⚙ 仍可进完整设置）。
-  const bootGate: 'loading' | 'about' | null =
-    serviceStatus.status === 'discovering' || serviceStatus.status === 'starting' ? 'loading'
-      : serviceStatus.status === 'error' || serviceStatus.status === 'stopped' ? 'about'
-        : null
-
-  if (bootGate === 'loading') {
+  if (serviceStatus.status === 'discovering' || serviceStatus.status === 'starting') {
     return <LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} />
   }
-  if (bootGate === 'about') {
+  if (serviceStatus.status === 'error' || serviceStatus.status === 'stopped') {
     return <AboutGate panel={settingsPanel} wire={wire} onOpenInBrowser={() => post({ type: 'openInBrowser' })} />
   }
 
@@ -466,6 +473,26 @@ export default function App() {
         wire={wire}
         onBack={handleCloseSettings}
         onOpenInBrowser={() => post({ type: 'openInBrowser' })}
+      />
+    )
+  }
+
+  // ready 但面板尚未到达（boot 首推面板的短暂窗口）→ 先 loading，避免聊天闪现后被引导页接管。
+  if (serviceStatus.status === 'ready' && settingsPanel === null) {
+    return <LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} />
+  }
+
+  // 无可用 Provider 引导页：仅 credential-missing 且未暂离时拦截聊天（设置页照常可进）。
+  if (serviceStatus.status === 'ready'
+    && settingsPanel !== null
+    && !gateDismissed
+    && noProviderReadiness(settingsPanel).kind === 'credential-missing') {
+    return (
+      <NoProviderGate
+        panel={settingsPanel}
+        wire={wire}
+        onBack={() => setGateDismissed(true)}
+        onOpenSettings={handleOpenSettings}
       />
     )
   }
