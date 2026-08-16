@@ -61,16 +61,15 @@ describe("startDshWeb", () => {
   });
 
   it.skipIf(process.platform !== "win32")(
-    "spawns an absolute-path .cmd launcher without EINVAL",
+    "spawns an absolute-path .cmd launcher whose path contains spaces",
     async () => {
-      const dir = mkdtempSync(join(tmpdir(), "dsh-vsc-server-"));
+      const dir = mkdtempSync(join(tmpdir(), "dsh vsc server-"));
       const launcherPath = join(dir, "dsh.cmd");
       writeFileSync(
         launcherPath,
         "@echo off\r\necho dsh web: http://127.0.0.1:38678\r\n",
       );
       try {
-        // Rejects with EINVAL before the fix; resolves with the ready URL after.
         const server = await startDshWeb({
           launcher: { command: launcherPath, args: [], source: "path" },
           bootTimeoutMs: 10_000,

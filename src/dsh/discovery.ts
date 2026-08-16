@@ -50,13 +50,15 @@ export async function probeVersion(
 ): Promise<string | null> {
   return await new Promise((resolve) => {
     let settled = false;
+    const shell = process.platform === "win32";
+    const probeCommand = shell && /\s/u.test(command) ? `"${command}"` : command;
     const child = execFile(
-      command,
+      probeCommand,
       [...args, "--version"],
       {
         timeout: timeoutMs,
         windowsHide: true,
-        shell: process.platform === "win32",
+        shell,
       },
       (error, stdout) => {
         if (settled) return;

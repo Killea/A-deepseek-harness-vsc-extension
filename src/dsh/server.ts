@@ -64,7 +64,11 @@ export function startDshWeb(
     // only a real .exe can be spawned directly. An absolute .cmd path still
     // needs the shell — spawning it directly fails with EINVAL.
     const needsShell = launcherNeedsShell(launcher.command);
-    const child = spawn(launcher.command, args, {
+    const spawnCommand =
+      needsShell && /\s/u.test(launcher.command)
+        ? `"${launcher.command}"`
+        : launcher.command;
+    const child = spawn(spawnCommand, args, {
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
       shell: needsShell,
