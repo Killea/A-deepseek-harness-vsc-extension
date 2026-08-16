@@ -34,9 +34,9 @@ The Project is **Visual Studio Code Extension** provides additional features for
 
 ## Start
 
-Extension will try to find `dsh` in PATH. so, you should run:
+Extension will try to find `dsh`. so, you install `dsh`:
 
-本拓展将会尝试从 PATH 环境变量中寻找可用的 `dsh` 。因此，你应该通过以下方式安装 dsh 。
+本拓展将会尝试寻找可用的 `dsh` 。因此，请自行安装 dsh 。
 
 ```bash
 npm install -g @deepseek-ai/dsh
