@@ -32,6 +32,7 @@ import type {
 } from "../services/at-ref-service.ts";
 import type { CommandService } from "../services/command-service.ts";
 import type { SkillService } from "../services/skill-service.ts";
+import type { AgentPresetService } from "../services/agent-preset-service.ts";
 import type { PendingInteractionService } from "../services/pending-interaction-service.ts";
 import type { SettingsService } from "../services/settings-service.ts";
 import type { DshLauncher } from "../dsh/discovery.ts";
@@ -110,6 +111,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly atRef: AtRefService,
     private readonly commands: CommandService,
     private readonly skills: SkillService,
+    private readonly agentPresets: AgentPresetService,
     private readonly pendingInteractions: PendingInteractionService,
     private readonly settings: SettingsService,
     private readonly dshFacts: () => DshFacts,
@@ -184,7 +186,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           const navigationId = message.navigationId ?? this.navigationId + 1;
           if (navigationId < this.navigationId) return;
           this.navigationId = navigationId;
-          const { sessionId } = await this.sessions.resolveNewSession(
+          const sessionId = await this.resolveComposerSession(
+            null,
             message.occupiedBlankSessionIds ?? [],
           );
           if (navigationId !== this.navigationId) {
@@ -197,6 +200,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           this.verifyBaseline(sessionId);
           await this.refreshSessions();
           await this.refreshComposerCatalogs(sessionId);
+          await this.refreshAgentPresets(sessionId);
         } catch (error) {
           this.post({ type: "notice", text: String(error) });
         }
@@ -225,6 +229,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
         // M3b: / 命令目录随会话切换重拉（agent-backed，commands/change 亦失效）。
         await this.refreshComposerCatalogs(
+          message.sessionId,
+          message.navigationId,
+        );
+        await this.refreshAgentPresets(
           message.sessionId,
           message.navigationId,
         );
@@ -294,6 +302,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           message.occupiedBlankSessionIds,
         );
         break;
+      case "agentPresetOpen":
+        await this.refreshAgentPresets(
+          message.sessionId,
+          message.requestId,
+        );
+        break;
+      case "agentPresetSelect":
+        await this.serveAgentPresetSelect(
+          message.sessionId,
+          message.requestId,
+          message.agentPreset,
+        );
+        break;
       case "modelSelect":
         await this.serveModelSelect(
           message.sessionId,
@@ -318,14 +339,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const text = message.text.trim();
         if (!text) return;
         const sourceSessionId = message.sessionId;
-        let sessionId = sourceSessionId;
-        if (!sessionId) {
-          try {
-            sessionId = (
-              await this.sessions.resolveNewSession(
-                message.occupiedBlankSessionIds ?? [],
-              )
-            ).sessionId;
+        let sessionId: string;
+        try {
+          sessionId = await this.resolveComposerSession(
+            sourceSessionId,
+            message.occupiedBlankSessionIds ?? [],
+          );
+          if (sourceSessionId === null) {
             // An unbound send selects the created session only if no newer
             // navigation intent superseded it while creation was in flight.
             this._selectedSessionId = sessionId;
@@ -334,18 +354,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             this.verifyBaseline(sessionId);
             await this.refreshSessions();
             await this.refreshComposerCatalogs(sessionId);
-          } catch (error) {
-            this.post({
-              type: "composerOperation",
-              sourceSessionId,
-              sessionId: null,
-              requestId: message.requestId,
-              operation: "send",
-              status: "failed",
-              text: String(error),
-            });
-            return;
+            await this.refreshAgentPresets(sessionId);
           }
+        } catch (error) {
+          this.post({
+            type: "composerOperation",
+            sourceSessionId,
+            sessionId: null,
+            requestId: message.requestId,
+            operation: "send",
+            status: "failed",
+            text: String(error),
+          });
+          return;
         }
         if (this.promptInFlight.has(sessionId)) {
           this.post({
@@ -442,10 +463,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
         try {
           await this.sessions.archiveSession(message.sessionId);
+          this.agentPresets.clear(message.sessionId);
           this.post({ type: "sessionArchived", sessionId: message.sessionId });
           if (this._selectedSessionId === message.sessionId) {
             this._selectedSessionId = null;
             this.post({ type: "selectedSession", sessionId: null });
+            await this.refreshAgentPresets(null);
           }
           await this.refreshSessions();
         } catch (error) {
@@ -526,16 +549,162 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     sourceSessionId: string | null,
     occupiedBlankSessionIds: readonly string[] = [],
   ): Promise<string> {
-    if (sourceSessionId !== null) return sourceSessionId;
-    const flight =
-      this.unboundSessionResolution ??
-      this.sessions.resolveNewSession(occupiedBlankSessionIds);
-    this.unboundSessionResolution = flight;
+    let sessionId = sourceSessionId;
+    if (sessionId === null) {
+      const flight =
+        this.unboundSessionResolution ??
+        this.sessions.resolveNewSession(occupiedBlankSessionIds);
+      this.unboundSessionResolution = flight;
+      try {
+        sessionId = (await flight).sessionId;
+      } finally {
+        if (this.unboundSessionResolution === flight)
+          this.unboundSessionResolution = null;
+      }
+    }
+    await this.deliverAgentPreset(sourceSessionId, sessionId);
+    return sessionId;
+  }
+
+  /** Push the roster and one composer slot's extension-owned stage state. */
+  async refreshAgentPresets(
+    sessionId: string | null = this._selectedSessionId,
+    requestId = 0,
+  ): Promise<void> {
     try {
-      return (await flight).sessionId;
+      await this.agentPresets.list();
+    } catch {
+      // The service projection retains the roster error separately from an
+      // authoritative successful empty roster.
+    }
+    this.post({
+      type: "agentPresets",
+      sessionId,
+      requestId,
+      agentPresets: this.agentPresets.view(sessionId),
+    });
+  }
+
+  private postAgentPresetState(
+    sessionId: string | null,
+    requestId = 0,
+  ): void {
+    this.post({
+      type: "agentPresets",
+      sessionId,
+      requestId,
+      agentPresets: this.agentPresets.view(sessionId),
+    });
+  }
+
+  /** Select in a bound blank session, or only stage in the unbound composer. */
+  private async serveAgentPresetSelect(
+    sourceSessionId: string | null,
+    requestId: number,
+    agentPreset: string,
+  ): Promise<void> {
+    // Arm the slot before the first await. Webview messages are handled
+    // concurrently, so a following command/model/send must observe this
+    // choice and join its delivery rather than slipping through on the old
+    // composition while roster/session validation yields.
+    this.agentPresets.stage(sourceSessionId, agentPreset);
+    try {
+      const roster = await this.agentPresets.list();
+      const option = roster.find(
+        (entry) => entry.id === agentPreset && entry.broken === undefined,
+      );
+      if (option === undefined) {
+        this.agentPresets.fail(
+          sourceSessionId,
+          `Agent Preset \"${agentPreset}\" 不可选择`,
+          true,
+        );
+        return;
+      }
+      if (sourceSessionId === null) {
+        return;
+      }
+      let summary = this.lastSessionItems.get(sourceSessionId);
+      if (summary === undefined) {
+        await this.refreshSessions();
+        summary = this.lastSessionItems.get(sourceSessionId);
+      }
+      if (summary === undefined) {
+        this.agentPresets.fail(
+          sourceSessionId,
+          "无法确认当前会话状态",
+          true,
+        );
+        return;
+      }
+      if (!summary.blank) {
+        this.agentPresets.fail(
+          sourceSessionId,
+          "会话首次运行后 Agent Preset 已锁定",
+          true,
+        );
+        return;
+      }
+      if (summary.agentPreset === agentPreset) {
+        this.agentPresets.clear(sourceSessionId);
+        return;
+      }
+      this.postAgentPresetState(sourceSessionId, requestId);
+      await this.deliverAgentPreset(sourceSessionId, sourceSessionId);
+    } catch (error) {
+      this.post({
+        type: "commandNotice",
+        sessionId: sourceSessionId,
+        level: "error",
+        text: String(error),
+      });
     } finally {
-      if (this.unboundSessionResolution === flight)
-        this.unboundSessionResolution = null;
+      this.postAgentPresetState(sourceSessionId, requestId);
+    }
+  }
+
+  /** Commit a pending stage before any other session-scoped composer action. */
+  private async deliverAgentPreset(
+    sourceSessionId: string | null,
+    targetSessionId: string,
+  ): Promise<void> {
+    const delivery = this.agentPresets.deliver(
+      sourceSessionId,
+      targetSessionId,
+      async (selected) => {
+        await this.handleAgentPresetSelected(targetSessionId, selected);
+      },
+    );
+    this.postAgentPresetState(sourceSessionId);
+    try {
+      await delivery;
+    } finally {
+      this.postAgentPresetState(sourceSessionId);
+    }
+  }
+
+  /**
+   * Converge a local RPC echo or forwarded owner event. Agent-derived caches
+   * are invalidated for every session and eagerly refreshed only for current.
+   */
+  async handleAgentPresetSelected(
+    sessionId: string,
+    agentPreset: string,
+  ): Promise<void> {
+    const cached = this.lastSessionItems.get(sessionId);
+    if (cached !== undefined && cached.agentPreset !== agentPreset) {
+      this.lastSessionItems.set(sessionId, { ...cached, agentPreset });
+    }
+    this.commands.invalidate(sessionId);
+    this.skills.invalidate(sessionId);
+    await this.refreshSessions();
+    if (this._selectedSessionId === sessionId) {
+      await Promise.all([
+        this.refreshComposerCatalogs(sessionId),
+        this.conversations.seedProjections(sessionId),
+      ]);
+      this.postPermissions(sessionId);
+      await this.refreshAgentPresets(sessionId);
     }
   }
 
@@ -576,6 +745,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!workspace) return;
     const visible = await this.sessions.listSessions(this._selectedSessionId);
     for (const item of visible) {
+      if (!item.blank) this.agentPresets.noteNonBlank(item.sessionId);
       this.lastSessionItems.set(item.sessionId, item);
       const current = this.activities.get(item.sessionId);
       this.activities.set(item.sessionId, {
@@ -614,11 +784,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (this.isSessionActive(sessionId)) {
         this.updateActivity(sessionId, { archivedActive: true });
       } else {
+        this.agentPresets.clear(sessionId);
         this.activities.delete(sessionId);
         this.post({ type: "sessionArchived", sessionId });
         if (this._selectedSessionId === sessionId) {
           this._selectedSessionId = null;
           this.post({ type: "selectedSession", sessionId: null });
+          await this.refreshAgentPresets(null);
         }
       }
     }
@@ -642,6 +814,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // 繁忙时 Enter 偏好 best-effort 加载（失败回落 queue，不阻塞重水合）。
     this.busyEnter = await this.settings.loadBusyEnter();
     await this.refreshSessions();
+    if (facts.status === "ready")
+      await this.refreshAgentPresets(this._selectedSessionId);
     // 面板数据：ready（供「无可用 Provider」引导页派生）或终态（error/stopped，供「关于」gate）
     // 都推送；webview 重载/首载时据此重水合。
     if (facts.status === "ready" || facts.status === "error" || facts.status === "stopped")
@@ -676,7 +850,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (this._selectedSessionId !== null) return;
     const navigationId = ++this.navigationId;
     try {
-      const { sessionId } = await this.sessions.resolveNewSession([]);
+      const sessionId = await this.resolveComposerSession(null, []);
       if (
         navigationId !== this.navigationId ||
         this._selectedSessionId !== null
@@ -690,6 +864,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.verifyBaseline(sessionId);
       await this.refreshSessions();
       await this.refreshComposerCatalogs(sessionId);
+      await this.refreshAgentPresets(sessionId);
     } catch {
       // 尚未关联 Workspace / 服务尚不可用：静默跳过。
     }
@@ -1203,6 +1378,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       return;
     const event = payload.event;
     if (event.type === "turn/start") {
+      this.agentPresets.noteNonBlank(payload.sessionId);
+      if (payload.sessionId === this._selectedSessionId)
+        this.postAgentPresetState(payload.sessionId);
       this.updateActivity(payload.sessionId, { running: true });
       return;
     }
@@ -1227,11 +1405,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     const activity = this.activities.get(payload.sessionId);
     if (activity?.archivedActive && !this.isSessionActive(payload.sessionId)) {
+      this.agentPresets.clear(payload.sessionId);
       this.activities.delete(payload.sessionId);
       this.post({ type: "sessionArchived", sessionId: payload.sessionId });
       if (this._selectedSessionId === payload.sessionId) {
         this._selectedSessionId = null;
         this.post({ type: "selectedSession", sessionId: null });
+        void this.refreshAgentPresets(null);
       }
       void this.refreshSessions();
     }

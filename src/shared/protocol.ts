@@ -92,6 +92,13 @@ export type ExtensionToWebviewMessage =
       requestId: number;
       permissions: PermissionSelectView | null;
     }
+  // Agent Preset 席位：部署 roster + 当前 composer 槽位的暂存/写入状态。
+  | {
+      type: "agentPresets";
+      sessionId: string | null;
+      requestId: number;
+      agentPresets: AgentPresetSelectView;
+    }
   // 当前会话的用量统计（tokenUsage/sessionStats/contextPressure/contextBreakdown 投影组合；
   // null = 全部投影缺席 → chip 隐藏，静默降级）。
   | { type: "stats"; sessionId: string; stats: UsageStatsView | null }
@@ -167,6 +174,19 @@ export type WebviewToExtensionMessage =
       sessionId: string | null;
       requestId: number;
       occupiedBlankSessionIds?: string[];
+    }
+  // Agent Preset 席位打开：读取（或复用）部署 roster。
+  | {
+      type: "agentPresetOpen";
+      sessionId: string | null;
+      requestId: number;
+    }
+  // Agent Preset 选择：未绑定槽位仅 stage；空白会话 stage 后立即 select。
+  | {
+      type: "agentPresetSelect";
+      sessionId: string | null;
+      requestId: number;
+      agentPreset: string;
     }
   // M3b: /model 选中模型 → session.selectModel（effort 可选；缺席 = 回落默认）。
   | {
@@ -255,6 +275,28 @@ export interface SessionSummary {
   agentPreset?: string;
   /** Session-title projection cell when the deployment provides one. */
   projections?: { values: { title?: string | null } };
+}
+
+/** One raw agentPreset.list roster row; broken rows remain projected. */
+export interface AgentPresetEntryView {
+  id: string;
+  trust: "system" | "user";
+  isDefault: boolean;
+  name?: string;
+  description?: string;
+  broken?: string;
+}
+
+/** Agent Preset seat state owned by the extension for one composer slot. */
+export interface AgentPresetSelectView {
+  /** Complete host roster in host order; the component filters broken choices. */
+  presets: AgentPresetEntryView[];
+  /** Explicit choice not yet committed to a blank Session. */
+  staged?: string;
+  /** True while agentPreset.select is the slot's atomic action gate. */
+  busy: boolean;
+  /** Last roster or selection failure; a successful action clears it. */
+  error?: string;
 }
 
 /** Lightweight runtime state for one Workspace session; independent of history rendering. */

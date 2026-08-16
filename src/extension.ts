@@ -22,6 +22,7 @@ import {
 } from "./services/at-ref-service.ts";
 import { CommandService } from "./services/command-service.ts";
 import { SkillService } from "./services/skill-service.ts";
+import { AgentPresetService } from "./services/agent-preset-service.ts";
 import {
   SettingsService,
   deriveSettingsYamlPath,
@@ -71,6 +72,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // M3b+: / 菜单技能目录（skill.list 契约跟随；纯附加，agent-preset/selected + 重启失效）。
   const skills = new SkillService(() => dsh.client);
+
+  // Agent Preset：部署 roster 缓存 + 按 composer 槽位暂存的空白会话选择。
+  const agentPresets = new AgentPresetService(() => dsh.client);
 
   // M6: 设置面板服务（settings/credentials/llm wire 全部在此执行，webview 纯渲染）。
   const settings = new SettingsService({
@@ -245,19 +249,24 @@ export function activate(context: vscode.ExtensionContext): void {
         if (provider.selectedSessionId)
           void provider.refreshCommands(provider.selectedSessionId);
       }
-      // M3b+: 技能目录失效——preset 决定 agent 读哪些技能 provider，会话 preset 切换后
-      // 缓存目录属于旧组合，按会话失效并（若为当前会话）重拉。skills/change 不跨 wire，
-      // 不在此处理。
       if (
         payload.type === "host/remote-event" &&
         payload.event === "agent-preset/selected"
       ) {
         const sessionId = payload.args?.[0];
-        if (typeof sessionId === "string") {
-          skills.invalidate(sessionId);
-          if (provider.selectedSessionId === sessionId)
-            void provider.refreshSkills(sessionId);
-        }
+        const agentPreset = payload.args?.[1];
+        if (typeof sessionId === "string" && typeof agentPreset === "string")
+          void provider.handleAgentPresetSelected(sessionId, agentPreset);
+      }
+      if (
+        payload.type === "host/remote-event" &&
+        payload.event === "settings/document-updated" &&
+        payload.args?.[0] === "agent-presets"
+      ) {
+        void agentPresets.refresh().then(
+          () => provider.refreshAgentPresets(),
+          () => provider.refreshAgentPresets(),
+        );
       }
     }
   });
@@ -275,6 +284,7 @@ export function activate(context: vscode.ExtensionContext): void {
     atRef,
     commands,
     skills,
+    agentPresets,
     pending,
     settings,
     dshFacts,
@@ -332,10 +342,12 @@ export function activate(context: vscode.ExtensionContext): void {
   const ensureWorkspaceForWindow = async (): Promise<void> => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) {
+      agentPresets.setWorkspace(null);
       provider.post({ type: "workspace", workspace: null });
       return;
     }
     if (!dsh.client) return; // server not ready yet; retried on status change
+    agentPresets.setWorkspace(folder.uri.fsPath);
     sessions.reset();
     try {
       const workspace = await sessions.ensureWorkspace(folder.uri.fsPath);
@@ -351,7 +363,9 @@ export function activate(context: vscode.ExtensionContext): void {
     if (status === "ready") {
       // M3b+: 技能目录跨代失效（dsh 重启后 host 目录可能不同；首启空缓存为无害 no-op）。
       skills.invalidate();
+      agentPresets.resetConnected();
       void ensureWorkspaceForWindow().then(() => {
+        void provider.refreshAgentPresets();
         // 首启自动会话：ready 且尚无选中会话时，自动 resolveNewSession + attach，
         // 让冷启动直接落在一个绑定好的空白会话上（不抢已有会话）。
         if (provider.selectedSessionId === null)

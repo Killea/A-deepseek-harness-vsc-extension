@@ -19,6 +19,7 @@ The Project is **Visual Studio Code Extension** provides additional features for
 - Native File Picker 原生文件选择器
 - Feeling of current focus 当前焦点感知
 - Problems from editor 编辑器问题
+- Agent Preset selector for blank sessions 空白会话模式选择器
 
 ## Install
 

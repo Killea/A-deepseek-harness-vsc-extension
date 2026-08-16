@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AtCandidatesView,
   AtRefPayload,
+  AgentPresetSelectView,
   CommandsSnapshot,
   ComposerSubmitGesture,
   ConversationSnapshot,
@@ -98,6 +99,7 @@ export default function App() {
   const [todosBySession, setTodosBySession] = useState<Record<string, TodoItem[] | null>>({})
   // 权限席位 + /permission 弹出选择器（permissions 投影；null = 能力缺席 → 隐藏）。
   const [permissionsBySession, setPermissionsBySession] = useState<Record<string, PermissionSelectView | null>>({})
+  const [agentPresetsBySession, setAgentPresetsBySession] = useState<Record<string, AgentPresetSelectView | null>>({})
   // 用量统计 chip + modal（token/时间/context 四投影组合；null = 全缺席 → chip 隐藏）。
   const [statsBySession, setStatsBySession] = useState<Record<string, UsageStatsView | null>>({})
   // M6: 设置面板视图切换 + 面板数据 + settingsReply 应答关联。
@@ -215,6 +217,7 @@ export default function App() {
           setReadEndSeq((prev) => omitKey(prev, key))
           setReadErrorSeq((prev) => omitKey(prev, key))
           setPermissionsBySession((prev) => omitKey(prev, key))
+          setAgentPresetsBySession((prev) => omitKey(prev, key))
           setStatsBySession((prev) => omitKey(prev, key))
           break
         }
@@ -239,6 +242,12 @@ export default function App() {
         case 'permissions':
           if (!accept('permissions', message.sessionId, message.requestId)) break
           setPermissionsBySession((prev) => ({ ...prev, [composerKey(message.sessionId)]: message.permissions }))
+          break
+        case 'agentPresets':
+          setAgentPresetsBySession((prev) => ({
+            ...prev,
+            [composerKey(message.sessionId)]: message.agentPresets,
+          }))
           break
         case 'stats':
           setStatsBySession((prev) => ({ ...prev, [message.sessionId]: message.stats }))
@@ -415,6 +424,28 @@ export default function App() {
     post({ type: 'permissionOpen', sessionId, requestId, occupiedBlankSessionIds: occupiedBlankSessionIds() })
   }, [occupiedBlankSessionIds, post])
 
+  const handleAgentPresetOpen = useCallback((sessionId: string | null): void => {
+    const requestId = ++requestSeq.current
+    post({ type: 'agentPresetOpen', sessionId, requestId })
+  }, [post])
+
+  const handleAgentPresetSelect = useCallback((sessionId: string | null, agentPreset: string): void => {
+    const requestId = ++requestSeq.current
+    const key = composerKey(sessionId)
+    setAgentPresetsBySession((prev) => {
+      const current = prev[key] ?? { presets: [], busy: false }
+      return {
+        ...prev,
+        [key]: {
+          presets: current.presets,
+          staged: agentPreset,
+          busy: sessionId !== null,
+        },
+      }
+    })
+    post({ type: 'agentPresetSelect', sessionId, requestId, agentPreset })
+  }, [post])
+
   const handleModelSelect = useCallback((sessionId: string | null, provider: string, model: string, effort?: string): void => {
     const key = composerKey(sessionId)
     const requestId = ++requestSeq.current
@@ -555,6 +586,9 @@ export default function App() {
         const operation = operationsBySession[key]
         const activity = sessionId ? activityBySession[sessionId] : undefined
         const conversation = sessionId ? conversations[sessionId] : undefined
+        const agentPresetSession = sessionId
+          ? sessions.find((session) => session.sessionId === sessionId)
+          : undefined
         const running = conversation?.running === true || activity?.running === true
         return (
           <div key={key} className={active ? '' : 'hidden'}>
@@ -580,6 +614,11 @@ export default function App() {
               permissions={permissionsBySession[key] ?? null}
               onPermissionSelect={(preset) => handleCommandExecute(sessionId, `/permission ${preset}`)}
               onPermissionOpen={() => handlePermissionOpen(sessionId)}
+              agentPresets={agentPresetsBySession[key] ?? null}
+              agentPresetSession={agentPresetSession}
+              agentPresetBound={sessionId !== null}
+              onAgentPresetOpen={() => handleAgentPresetOpen(sessionId)}
+              onAgentPresetSelect={(id) => handleAgentPresetSelect(sessionId, id)}
               notices={noticesBySession[key] ?? []}
               onNoticeDismissed={(id) => setNoticesBySession((prev) => ({
                 ...prev,
