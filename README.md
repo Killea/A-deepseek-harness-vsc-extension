@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/ui/src/deepseek-color.svg" width="64" align="left" alt="DeepSeek Gold Harness" />
+<img src="https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/ui/src/deepseek-color.png" width="64" align="left" alt="DeepSeek Gold Harness" />
 
 # DeepSeek Gold Harness — VS Code Extension
 
@@ -9,6 +9,8 @@ A **Visual Studio Code extension** that brings [DeepSeek Harness](https://github
 
 ![Installs](https://vsmarketplacebadges.dev/installs-short/Killea.deepseek-gold-harness.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
 
+![DeepSeek Gold Harness — Editor & Agent Preset modes](https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/gold.png)
+
 ## Features
 
 - **Native VS Code UI** — sidebar chat panel that follows your theme (light/dark/high-contrast)
@@ -16,10 +18,40 @@ A **Visual Studio Code extension** that brings [DeepSeek Harness](https://github
 - **Editor awareness** — automatically attaches the active file and editor problems
 - **Agent Preset selector** — switch between modes (Standard, PTC, Minimal, Creative) for blank sessions
 - **Model & reasoning level selector** — Codex-style single-panel dropdown for quick model and reasoning effort switching
+- **Image paste support** — paste images directly from clipboard (PNG/JPEG/WebP/GIF) into the composer
 - **Session statistics tooltip** — hover the context-occupancy ring to see token usage, timing, and context breakdown
 - **Todo strip** — live task tracking displayed above the composer
 - **Pending dialog** — approval/plan-review/question flows with keyboard navigation
 - **Multi-language support** — 7 languages with instant switching (see below)
+
+## Requirements
+
+- **VS Code** ≥ 1.90.0
+- **DeepSeek Harness (`dsh`)** — the extension discovers and manages the `dsh` runtime for you; install it first (see [Getting Started](#getting-started))
+- **Node.js** ≥ 20 (required by `dsh`)
+
+## Getting Started
+
+1. Install `dsh`:
+
+```bash
+npm install -g @deepseek-ai/dsh
+# or
+npx @deepseek-ai/dsh
+```
+
+2. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Killea.deepseek-gold-harness).
+
+3. Open the **DeepSeek Harness** panel in the secondary sidebar (look for the whale icon), or run **dsh: Open Chat** from the Command Palette (`Ctrl/Cmd+Shift+P`).
+
+4. The extension automatically discovers `dsh` and connects. If `autoStart` is enabled (default), it connects on workspace open.
+
+5. Start chatting — type a message and press `Enter` to send (`Shift+Enter` for newline). Use `@` to attach files, `/` for commands and skills.
+
+> [!NOTE]
+> Due to possible breaking changes in DeepSeek Harness, this extension may only work with specific versions of dsh.
+>
+> Tested version: 0.1.0-rc.6
 
 ## Multi-language Support (i18n)
 
@@ -37,7 +69,33 @@ The extension UI is fully internationalized using `i18next` + `react-i18next`. S
 
 Language can be changed at any time via **Settings → Language** tab. The switch is **instant** — no window reload required. The language tab uses native names and a globe icon so users can always find it regardless of the current display language.
 
-Both the webview UI and the extension host (VS Code commands, configuration descriptions, notifications) are localized. VS Code `package.nls.*.json` files are generated from `src/shared/nls/` during build.
+Both the webview UI and the extension host (VS Code commands, configuration descriptions, notifications) are localized.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| **dsh: Open Chat** | Focus the DeepSeek Harness chat panel |
+| **Open Deepseek Harness** | Open chat from the editor title bar button |
+| **dsh: Open WebUI in Browser** | Open the dsh Web UI in your system browser |
+| **dsh: New Session** | Create a new conversation session |
+| **dsh: Refresh Sessions** | Refresh the session list from dsh |
+
+Access commands via the Command Palette (`Ctrl/Cmd+Shift+P`).
+
+## Configuration
+
+All settings are under `killea.deepseek-gold-harness.*` (scope: machine).
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `dshPath` | string\|null | `null` | Explicit path to the `dsh` executable. Empty: discover via PATH → npm global → npx. |
+| `externalUrl` | string\|null | `null` | External dsh base URL. When set, the extension only connects and never manages the process. |
+| `discoveryPort` | integer | `3080` | Port probed first for an existing dsh instance. |
+| `managedPort` | integer | `30800` | Fixed port used by the cross-window managed dsh runtime. A non-dsh listener is reported as a conflict. |
+| `autoStart` | boolean | `true` | Automatically connect to dsh when a workspace window opens. |
+| `locale` | string\|null | `null` | Display language. Auto-detects VS Code's language when empty. Supported: `en`, `zh-cn`, `zh-tw`, `ja`, `de`, `fr`, `es`. |
+| `minDshVersion` | string | `0.1.0-rc.6` | Reserved compatibility floor. Currently recorded but not enforced. |
 
 ## Install
 
@@ -51,51 +109,6 @@ Both the webview UI and the extension host (VS Code commands, configuration desc
 
 [GitHub Repo](https://github.com/Killea/A-deepseek-harness-vsc-extension)
 
-## Getting Started
-
-The extension automatically discovers `dsh`. Install it first:
-
-```bash
-npm install -g @deepseek-ai/dsh
-# or
-npx @deepseek-ai/dsh
-```
-
-> [!NOTE]
-> Due to possible breaking changes in DeepSeek Harness, this extension may only work with specific versions of dsh.
->
-> Tested version: 0.1.0-rc.6
-
-## Recent Changes
-
-### UI & Design
-
-- **Rounded corners (Codex style)** — all panels, menus, cards, buttons, and tooltips now use 8px border radius for a softer, modern look
-- **Composer input field** — rounded with a blue glow border on focus
-- **Session statistics** — changed from click-to-open modal to hover tooltip (no click required)
-- **Model selector** — redesigned as a Codex-style single-panel dropdown: reasoning levels are always visible at the top, model list expands inline below an HR divider
-
-### Internationalization
-
-- Full i18n for all user-visible strings across webview and host
-- 7 locale bundles (`en`, `zh-cn`, `zh-tw`, `ja`, `de`, `fr`, `es`) as JSONC files in `src/shared/locales/`
-- Instant language switching via `i18n.changeLanguage()` + React `key` remount to bypass memoized components
-- Fixed `Intl.getCanonicalLocales` uppercasing issue (`zh-cn` → `zh-CN`) by enabling `lowerCaseLng: true`
-- Agent Preset names mapped by host-provided Chinese names (e.g. "极简模式" → "Minimal") so they translate correctly in all languages
-- Language selector moved to its own Settings tab with a globe icon and native-language labels
-
-### Settings
-
-- **Settings page** — four tabs: Models, General, Language, About
-- **Language tab** — independent tab with native-name button list (not a dropdown) so users never get lost after switching
-- **Tab state persistence** — settings tab selection survives language-change remounts
-
-### Build System
-
-- `package.nls.*.json` files moved from root to `src/shared/nls/` (source of truth); build step copies them to root for VS Code
-- Root nls files are gitignored build artifacts
-- esbuild plugin strips JSONC comments for host-side locale bundling
-
 ## Roadmap
 
 - [x] Usage display (token, context, timing)
@@ -104,6 +117,7 @@ npx @deepseek-ai/dsh
 - [x] Multi-language i18n with instant switching
 - [x] Codex-style model/reasoning selector
 - [x] Hover tooltip for session statistics
+- [x] Image paste from clipboard
 - [ ] Session fork
 - [ ] Changes list (artifact diff)
 - [ ] SubAgent management
@@ -123,7 +137,8 @@ F5
 pnpm package
 ```
 
-### Project Structure
+<details>
+<summary>Project structure (for contributors)</summary>
 
 ```
 src/
@@ -143,6 +158,8 @@ ui/
 │   └── markdown/             # Markdown rendering pipeline
 └── icons/                    # SVG icon components
 ```
+
+</details>
 
 ## License
 
