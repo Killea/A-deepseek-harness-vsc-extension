@@ -71,7 +71,6 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
-  const [acknowledged, setAcknowledged] = useState(false)
   const [index, setIndex] = useState(0)
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -145,7 +144,6 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
   const close = (): void => {
     setOpen(false)
     setConfirming(false)
-    setAcknowledged(false)
     setIndex(0)
   }
 
@@ -158,7 +156,6 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
     setOpen(false)
     if (preset === value.currentValue) return
     if (preset === FULL_ACCESS_PRESET) {
-      setAcknowledged(false)
       setConfirming(true)
       return
     }
@@ -166,7 +163,6 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
   }
 
   const confirmFullAccess = (): void => {
-    if (!acknowledged) return
     submit(FULL_ACCESS_PRESET)
   }
 
@@ -201,8 +197,13 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
         disabled={busy}
         onClick={() => (open ? close() : (setOpen(true), setIndex(0)))}
       >
-        {permissionGlyph(value.currentValue)}
-        <span className="min-w-0 max-w-[140px] truncate">{currentLabel}</span>
+        <span style={value.currentValue === FULL_ACCESS_PRESET ? { color: '#FFD700' } : undefined}>
+          {permissionGlyph(value.currentValue)}
+        </span>
+        <span
+          className={`min-w-0 max-w-[140px] truncate ${value.currentValue === FULL_ACCESS_PRESET ? 'font-semibold' : ''}`}
+          style={value.currentValue === FULL_ACCESS_PRESET ? { color: '#FFD700' } : undefined}
+        >{currentLabel}</span>
         <IconChevronDownOutline14 size={14} />
       </button>
 
@@ -213,10 +214,12 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
           className="fixed z-20 w-72 max-w-[calc(100vw_-_2rem)] overflow-hidden rounded-xs border border-border-panel bg-background shadow-lg"
           style={menuPosition ?? { left: 0, top: 0, visibility: 'hidden' }}
         >
-          <div className="max-h-[240px] overflow-y-auto py-1">
+          <div className="py-1">
             {options.map((option, i) => {
               const selected = option.value === value.currentValue
               const label = labelFor(option.value, option.name)
+              const isFullAccess = option.value === FULL_ACCESS_PRESET
+              const goldColor = isFullAccess ? '#FFD700' : undefined
               return (
                 <button
                   key={option.value}
@@ -227,13 +230,17 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
                   onMouseEnter={() => setIndex(i)}
                   onClick={() => choose(option.value)}
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm" title={label}>{label}</span>
+                  <span className="min-w-0" style={isFullAccess ? { color: goldColor } : undefined}>
+                    <span className={`block truncate text-sm ${isFullAccess ? 'font-semibold' : ''}`} title={label}>{label}</span>
                     {option.description !== undefined && (
                       <span className="block truncate text-xs text-description" title={option.description}>{option.description}</span>
                     )}
                   </span>
-                  {selected ? <IconCheckOutline16 size={16} /> : null}
+                  {selected ? (
+                    <span style={isFullAccess ? { color: goldColor } : undefined}>
+                      <IconCheckOutline16 size={16} />
+                    </span>
+                  ) : null}
                 </button>
               )
             })}
@@ -245,18 +252,10 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
       {confirming && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">
           <div className="flex w-[85%] max-w-sm flex-col gap-2 rounded-xs border border-border-panel bg-background p-3 shadow-lg">
-            <div className="text-sm">{t('permissionSelect.confirmFullAccessTitle')}</div>
+            <div className="text-sm font-semibold" style={{ color: '#FFD700' }}>{t('permissionSelect.confirmFullAccessTitle')}</div>
             <p className="text-xs text-description">
               {t('permissionSelect.confirmFullAccessBody')}
             </p>
-            <label className="flex items-start gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={acknowledged}
-                onChange={(event) => setAcknowledged(event.target.checked)}
-              />
-              <span className="min-w-0">{t('permissionSelect.acknowledgeRisk')}</span>
-            </label>
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -267,8 +266,8 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
               </button>
               <button
                 type="button"
-                className="rounded-xs bg-button-background px-2.5 py-1 text-xs text-button-foreground hover:bg-button-hover disabled:opacity-50"
-                disabled={!acknowledged}
+                className="rounded-xs px-2.5 py-1 text-xs font-semibold hover:opacity-80"
+                style={{ backgroundColor: '#FFD700', color: '#000' }}
                 onClick={confirmFullAccess}
               >
                 {t('permissionSelect.enableFullAccess')}

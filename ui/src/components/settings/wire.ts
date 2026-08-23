@@ -31,7 +31,7 @@ export interface SettingsWire {
     behavior: BusyEnterBehavior,
     expectedRevision: number,
   ): Promise<SettingsReply>;
-  /** 写显示语言（killea.dsh-vsc.locale；null = 自动跟随 VS Code）。 */
+  /** 写显示语言（killea.deepseek-gold-harness.locale；null = 自动跟随 VS Code）。 */
   selectLocale(locale: string | null): Promise<SettingsReply>;
   /** 在当前 VS Code 窗口打开 settings.yaml（fire-and-forget）。 */
   openSettingsYaml(): void;

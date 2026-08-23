@@ -179,12 +179,12 @@
     "default": "默认",
     "nameStandard": "标准",
     "nameCode": "PTC",
-    "descStandard": "完整 Agent",
-    "descCode": "先计划后编码",
+    "descStandard": "功能完整的编码 Agent，支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。",
+    "descCode": "具备标准模式的全部能力，并通过 Code Mode SDK 呈现工具，让模型用一个 TypeScript 程序组合多步操作。",
     "nameMinimal": "极简",
-    "descMinimal": "极简模式",
+    "descMinimal": "仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。",
     "nameCreative": "创造",
-    "descCreative": "创造模式"
+    "descCreative": "用于创建自定义 Agent preset：具备标准模式的全部能力，并提供运行时检查、插件实验和 preset 创作指导。"
   },
 
   "modelSelect": {
@@ -230,6 +230,9 @@
     "configConflict": "配置已被其它编辑修改，请刷新后重试",
     "extensionVersion": "插件版本",
     "sourceRepo": "源码仓库",
+    "originalProject": "原项目",
+    "originalAuthor": "原作者",
+    "forkNotice": "本项目是原 DeepSeek Harness VS Code Extension 的社区 Fork，由社区独立维护并新增了多项功能。",
     "dshPackage": "Deepseek-harness Package",
     "dshConnection": "DSH 连接",
     "notConnected": "未连接到 DSH",
@@ -374,6 +377,6 @@
     "noteAborted": "已中断",
     "noteError": "出错：{{message}}",
     "noteUnknownError": "未知错误",
-    "dshNotFound": "未找到 dsh：PATH、npm 全局目录均无 dsh，且 `npx --no-install @deepseek-ai/dsh` 不可用。 请先安装：`npm install -g @deepseek-ai/dsh`，或在设置 killea.dsh-vsc.dshPath 中指定路径。"
+    "dshNotFound": "未找到 dsh：PATH、npm 全局目录均无 dsh，且 `npx --no-install @deepseek-ai/dsh` 不可用。 请先安装：`npm install -g @deepseek-ai/dsh`，或在设置 killea.deepseek-gold-harness.dshPath 中指定路径。"
   }
 }

@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("DeepSeek Harness");
   const log = (line: string): void => output.appendLine(line);
 
-  const config = vscode.workspace.getConfiguration("killea.dsh-vsc");
+  const config = vscode.workspace.getConfiguration("killea.deepseek-gold-harness");
   const explicitPath = config.get<string | null>("dshPath", null);
   const externalUrl = config.get<string | null>("externalUrl", null);
   const discoveryPort = config.get<number>("discoveryPort", 3080);
@@ -83,7 +83,7 @@ export function activate(context: vscode.ExtensionContext): void {
     onLog: (line) => log(line),
     localeReader: () =>
       vscode.workspace
-        .getConfiguration("killea.dsh-vsc")
+        .getConfiguration("killea.deepseek-gold-harness")
         .get<string | null>("locale") ?? null,
   });
 
@@ -121,7 +121,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const path = pickedUri.fsPath;
     try {
       await vscode.workspace
-        .getConfiguration("killea.dsh-vsc")
+        .getConfiguration("killea.deepseek-gold-harness")
         .update("dshPath", path, vscode.ConfigurationTarget.Global);
       await dsh.restart(path);
       void vscode.window.showInformationMessage(
@@ -341,7 +341,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     // i18n: locale 设置变更 → 刷新宿主侧 locale + 推送 webview changeLanguage。
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration("killea.dsh-vsc.locale")) {
+      if (event.affectsConfiguration("killea.deepseek-gold-harness.locale")) {
         i18n.refresh();
         provider.postLocale();
       }
@@ -349,17 +349,17 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("killea.dsh-vsc.focus", async () => {
-      await vscode.commands.executeCommand("killea-dsh-vsc.chat.focus");
+    vscode.commands.registerCommand("killea.deepseek-gold-harness.focus", async () => {
+      await vscode.commands.executeCommand("killea-deepseek-gold-harness.chat.focus");
     }),
     vscode.commands.registerCommand(
-      "killea.dsh-vsc.focus.from-editor",
+      "killea.deepseek-gold-harness.focus.from-editor",
       async () => {
-        await vscode.commands.executeCommand("killea-dsh-vsc.chat.focus");
+        await vscode.commands.executeCommand("killea-deepseek-gold-harness.chat.focus");
       },
     ),
     vscode.commands.registerCommand(
-      "killea.dsh-vsc.openInBrowser",
+      "killea.deepseek-gold-harness.openInBrowser",
       async () => {
         const url = dsh.baseUrl;
         if (!url) {
@@ -370,13 +370,13 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
     vscode.commands.registerCommand(
-      "killea.dsh-vsc.newSession",
+      "killea.deepseek-gold-harness.newSession",
       async () => {
         await provider.handleMessage({ type: "newSession" });
       },
     ),
     vscode.commands.registerCommand(
-      "killea.dsh-vsc.refreshSessions",
+      "killea.deepseek-gold-harness.refreshSessions",
       async () => {
         await provider.refreshSessions();
       },

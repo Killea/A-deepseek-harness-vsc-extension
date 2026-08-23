@@ -180,12 +180,12 @@
     "default": "Default",
     "nameStandard": "Standard",
     "nameCode": "PTC",
-    "descStandard": "Full Agent",
-    "descCode": "Plan-Then-Code",
+    "descStandard": "Full-capability coding Agent: file editing, Shell, file & web retrieval, Skills, plans, goals, sub-agents, and workflows.",
+    "descCode": "All Standard capabilities plus Code Mode SDK tool presentation, letting the model compose multi-step operations in one TypeScript program.",
     "nameMinimal": "Minimal",
-    "descMinimal": "Minimal mode",
+    "descMinimal": "A two-tool coding Agent with only persistent bash and str_replace_editor.",
     "nameCreative": "Creative",
-    "descCreative": "Creative mode"
+    "descCreative": "For authoring custom Agent presets: all Standard capabilities plus runtime inspection, plugin experimentation, and preset authoring guidance."
   },
 
   "modelSelect": {
@@ -231,6 +231,9 @@
     "configConflict": "The configuration was modified by another editor. Please refresh and retry.",
     "extensionVersion": "Extension version",
     "sourceRepo": "Source repository",
+    "originalProject": "Original project",
+    "originalAuthor": "Original author",
+    "forkNotice": "This is a community fork of the original DeepSeek Harness VS Code Extension, maintained independently with additional features.",
     "dshPackage": "Deepseek-harness Package",
     "dshConnection": "DSH connection",
     "notConnected": "Not connected to DSH",
@@ -375,6 +378,6 @@
     "noteAborted": "Aborted",
     "noteError": "Error: {{message}}",
     "noteUnknownError": "Unknown error",
-    "dshNotFound": "dsh not found: PATH and npm global directory have no dsh, and `npx --no-install @deepseek-ai/dsh` is unavailable. Please install first: `npm install -g @deepseek-ai/dsh`, or specify a path in the killea.dsh-vsc.dshPath setting."
+    "dshNotFound": "dsh not found: PATH and npm global directory have no dsh, and `npx --no-install @deepseek-ai/dsh` is unavailable. Please install first: `npm install -g @deepseek-ai/dsh`, or specify a path in the killea.deepseek-gold-harness.dshPath setting."
   }
 }

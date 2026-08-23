@@ -66,7 +66,7 @@ export interface DshFacts {
 }
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "killea-dsh-vsc.chat";
+  public static readonly viewType = "killea-deepseek-gold-harness.chat";
 
   private view: vscode.WebviewView | null = null;
   private pending: ExtensionToWebviewMessage[] = [];
@@ -186,7 +186,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   /** 读取 locale 配置原始值（null = 自动跟随 VS Code；用于设置面板显示）。 */
   private currentLocaleCode(): string | null {
     return vscode.workspace
-      .getConfiguration("killea.dsh-vsc")
+      .getConfiguration("killea.deepseek-gold-harness")
       .get<string | null>("locale") ?? null;
   }
 
@@ -554,11 +554,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case "openExtensionSettings":
         await vscode.commands.executeCommand(
           "workbench.action.openSettings",
-          "@ext:killea.dsh-vsc",
+          "@ext:killea.deepseek-gold-harness",
         );
         break;
       case "openInBrowser":
-        void vscode.commands.executeCommand("killea.dsh-vsc.openInBrowser");
+        void vscode.commands.executeCommand("killea.deepseek-gold-harness.openInBrowser");
         break;
       case "openExternalUrl":
         void vscode.env.openExternal(vscode.Uri.parse(message.url));
@@ -1299,12 +1299,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       await this.commands.selectModel(sessionId, provider, model, effort);
       await this.refreshModels(sessionId, requestId, sourceSessionId);
       this.post({
-        type: "commandNotice",
-        sessionId: sourceSessionId,
-        level: "info",
-        text: this.i18n.t("host.modelSelected", { provider, model }),
-      });
-      this.post({
         type: "composerOperation",
         sourceSessionId,
         sessionId,
@@ -1759,13 +1753,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  /** 「通用」页：写显示语言配置项（killea.dsh-vsc.locale）。 */
+  /** 「通用」页：写显示语言配置项（killea.deepseek-gold-harness.locale）。 */
   private async serveSelectLocale(
     id: number,
     locale: string | null,
   ): Promise<void> {
     try {
-      const config = vscode.workspace.getConfiguration("killea.dsh-vsc");
+      const config = vscode.workspace.getConfiguration("killea.deepseek-gold-harness");
       await config.update("locale", locale, vscode.ConfigurationTarget.Global);
       // 直接用传入值 resolve locale，避免 config.update 传播延迟导致的竞态。
       const resolved = this.i18n.resolveFromValue(locale);

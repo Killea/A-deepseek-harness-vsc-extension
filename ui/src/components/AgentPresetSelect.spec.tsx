@@ -84,7 +84,7 @@ describe('AgentPresetSelect', () => {
     fireEvent.click(view.getByRole('button', { name: 'Standard' }))
     expect(view.getByText(/mode is locked/)).toBeTruthy()
     expect((view.getByRole('menuitem', { name: /PTC/ }) as HTMLButtonElement).disabled).toBe(true)
-    expect((view.getByRole('menuitem', { name: /Standard/ }) as HTMLButtonElement).disabled).toBe(false)
+    expect((view.getByRole('menuitem', { name: /^Standard/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('shows a session preset id even when the selectable roster is empty', () => {

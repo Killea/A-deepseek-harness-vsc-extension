@@ -539,6 +539,7 @@ export default function App() {
     const key = composerKey(sessionId)
     const requestId = ++requestSeq.current
     setOperationsBySession((prev) => ({ ...prev, [key]: { requestId, kind: 'model' } }))
+    keepDraftRequestIds.current.add(requestId)
     post({
       type: 'modelSelect', sessionId, requestId, provider, model,
       ...(effort === undefined ? {} : { effort }),

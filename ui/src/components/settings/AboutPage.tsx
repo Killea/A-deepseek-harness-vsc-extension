@@ -11,8 +11,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
 import type { SettingsWire } from './wire.ts'
+import goldLogoUrl from '@ui/src/deepseek-color.svg?url'
 
 const REPO_URL = 'https://github.com/Killea/A-deepseek-harness-vsc-extension'
+const ORIGINAL_REPO_URL = 'https://github.com/weinibuliu/deepseek-harness-vsc-extension'
+const ORIGINAL_AUTHOR = 'weinibuliu'
 
 const SOURCE_LABEL_KEY: Record<string, string> = {
   config: 'settings.sourceConfig',
@@ -63,7 +66,10 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
 
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-3 py-2">
-      <h2 className="text-sm">{t('settings.about')}</h2>
+      <div className="flex items-center gap-2">
+        <img src={goldLogoUrl} width={28} height={28} alt="DeepSeek Gold Harness" />
+        <h2 className="text-sm">{t('settings.about')}</h2>
+      </div>
       <Row label={t('settings.extensionVersion')}>
         {panel === null ? (
           <span className="text-xs text-description">{t('common.loading')}</span>
@@ -80,6 +86,28 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
           {REPO_URL}
         </button>
       </Row>
+
+      <div className="flex flex-col gap-1.5 rounded-xs border border-border-panel p-2.5">
+        <Row label={t('settings.originalProject')}>
+          <button
+            type="button"
+            className="w-fit break-all text-left text-xs text-link hover:text-link-hover"
+            onClick={() => { wire.openExternalUrl(ORIGINAL_REPO_URL) }}
+          >
+            {ORIGINAL_REPO_URL}
+          </button>
+        </Row>
+        <Row label={t('settings.originalAuthor')}>
+          <button
+            type="button"
+            className="w-fit text-left text-xs text-link hover:text-link-hover"
+            onClick={() => { wire.openExternalUrl(`https://github.com/${ORIGINAL_AUTHOR}`) }}
+          >
+            @{ORIGINAL_AUTHOR}
+          </button>
+        </Row>
+        <p className="text-xs text-description">{t('settings.forkNotice')}</p>
+      </div>
 
       <section className="flex flex-col gap-3 border-t border-border-panel pt-3">
         <h3 className="text-xs font-medium text-foreground">{t('settings.dshPackage')}</h3>

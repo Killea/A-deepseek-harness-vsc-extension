@@ -192,7 +192,7 @@ export function AgentPresetSelect({
               {t('agentPreset.lockedAfterFirstRunMenu')}
             </div>
           ) : null}
-          <div className="max-h-[280px] overflow-y-auto py-1">
+          <div className="py-1">
             {options.map((option, optionIndex) => {
               const selected = option.id === currentId
               const optionLocked = locked && !selected
@@ -212,7 +212,14 @@ export function AgentPresetSelect({
                   <span className="min-w-0 flex-1">
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate text-sm">{label}</span>
-                      <span className="shrink-0 rounded-xs border border-border-panel px-1 text-[10px] text-description">
+                      <span
+                        className="shrink-0 rounded-xs border px-1 text-[10px]"
+                        style={
+                          option.trust === 'system'
+                            ? { borderColor: '#4CAF50', color: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' }
+                            : undefined
+                        }
+                      >
                         {option.trust === 'system' ? t('common.builtIn') : t('common.custom')}
                       </span>
                       {option.isDefault ? (

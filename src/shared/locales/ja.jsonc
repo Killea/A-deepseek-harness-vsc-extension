@@ -180,12 +180,12 @@
     "default": "デフォルト",
     "nameStandard": "スタンダード",
     "nameCode": "PTC",
-    "descStandard": "フル Agent",
-    "descCode": "計画後にコード",
+    "descStandard": "完全なコーディング Agent：ファイル編集、Shell、ファイル・Web 検索、Skills、計画、目標、サブエージェント、ワークフローをサポート。",
+    "descCode": "スタンダードの全機能に加え、Code Mode SDK によるツール提示で、モデルが一つの TypeScript プログラムで複数ステップの操作を組み合わせられます。",
     "nameMinimal": "ミニマル",
-    "descMinimal": "ミニマルモード",
+    "descMinimal": "永続 bash と str_replace_editor のみを持つ二ツールのコーディング Agent。",
     "nameCreative": "クリエイティブ",
-    "descCreative": "クリエイティブモード"
+    "descCreative": "カスタム Agent preset の作成用：スタンダードの全機能に加え、ランタイム検査、プラグイン実験、preset 作成ガイダンスを提供。"
   },
 
   "modelSelect": {
@@ -231,6 +231,9 @@
     "configConflict": "設定が別のエディターによって変更されました。更新して再試行してください。",
     "extensionVersion": "拡張機能バージョン",
     "sourceRepo": "ソースリポジトリ",
+    "originalProject": "オリジナルプロジェクト",
+    "originalAuthor": "オリジナル作者",
+    "forkNotice": "本プロジェクトはオリジナルの DeepSeek Harness VS Code Extension のコミュニティフォークであり、コミュニティにより独立して保守され、追加機能が提供されています。",
     "dshPackage": "Deepseek-harness パッケージ",
     "dshConnection": "DSH 接続",
     "notConnected": "DSH に未接続",
@@ -375,6 +378,6 @@
     "noteAborted": "中止されました",
     "noteError": "エラー：{{message}}",
     "noteUnknownError": "不明なエラー",
-    "dshNotFound": "dsh が見つかりません：PATH と npm グローバルディレクトリに dsh がなく、`npx --no-install @deepseek-ai/dsh` も利用できません。先にインストールしてください：`npm install -g @deepseek-ai/dsh`、または killea.dsh-vsc.dshPath 設定でパスを指定してください。"
+    "dshNotFound": "dsh が見つかりません：PATH と npm グローバルディレクトリに dsh がなく、`npx --no-install @deepseek-ai/dsh` も利用できません。先にインストールしてください：`npm install -g @deepseek-ai/dsh`、または killea.deepseek-gold-harness.dshPath 設定でパスを指定してください。"
   }
 }

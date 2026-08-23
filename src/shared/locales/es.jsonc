@@ -180,12 +180,12 @@
     "default": "Predeterminado",
     "nameStandard": "Estándar",
     "nameCode": "PTC",
-    "descStandard": "Agent completo",
-    "descCode": "Plan-Then-Code",
+    "descStandard": "Agent de codificación completo: edición de archivos, Shell, búsqueda de archivos y web, Skills, planes, objetivos, sub-agentes y flujos de trabajo.",
+    "descCode": "Todas las capacidades Estándar más presentación de herramientas vía Code Mode SDK, permitiendo al modelo componer múltiples pasos en un programa TypeScript.",
     "nameMinimal": "Minimal",
-    "descMinimal": "Modo minimal",
+    "descMinimal": "Un Agent de codificación de dos herramientas: bash persistente y str_replace_editor.",
     "nameCreative": "Creativo",
-    "descCreative": "Modo creativo"
+    "descCreative": "Para crear Agent presets personalizados: todas las capacidades Estándar más inspección en tiempo de ejecución, experimentación de plugins y guía de creación de presets."
   },
 
   "modelSelect": {
@@ -231,6 +231,9 @@
     "configConflict": "La configuración fue modificada por otro editor. Actualiza y vuelve a intentarlo.",
     "extensionVersion": "Versión de la extensión",
     "sourceRepo": "Repositorio de origen",
+    "originalProject": "Proyecto original",
+    "originalAuthor": "Autor original",
+    "forkNotice": "Esta es una bifurcación comunitaria de la extensión original de DeepSeek Harness para VS Code, mantenida de forma independiente con funciones adicionales.",
     "dshPackage": "Paquete Deepseek-harness",
     "dshConnection": "Conexión DSH",
     "notConnected": "No conectado a DSH",
@@ -375,6 +378,6 @@
     "noteAborted": "Interrumpido",
     "noteError": "Error: {{message}}",
     "noteUnknownError": "Error desconocido",
-    "dshNotFound": "dsh no encontrado: PATH y el directorio global de npm no contienen dsh, y `npx --no-install @deepseek-ai/dsh` no está disponible. Instala primero: `npm install -g @deepseek-ai/dsh`, o especifica una ruta en el ajuste killea.dsh-vsc.dshPath."
+    "dshNotFound": "dsh no encontrado: PATH y el directorio global de npm no contienen dsh, y `npx --no-install @deepseek-ai/dsh` no está disponible. Instala primero: `npm install -g @deepseek-ai/dsh`, o especifica una ruta en el ajuste killea.deepseek-gold-harness.dshPath."
   }
 }

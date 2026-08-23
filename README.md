@@ -1,11 +1,13 @@
-# DeepSeek Harness VS Code Extension
+<img src="https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/ui/src/deepseek-color.svg" width="64" align="left" alt="DeepSeek Gold Harness" />
+
+# DeepSeek Gold Harness — VS Code Extension
 
 > [!NOTE]
 > This is a **community** project. It may have issues, and we are actively working to make it better.
 
 A **Visual Studio Code extension** that brings [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into your editor with a native VS Code experience.
 
-![Installs](https://vsmarketplacebadges.dev/installs-short/Killea.dsh-vsc.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
+![Installs](https://vsmarketplacebadges.dev/installs-short/Killea.deepseek-gold-harness.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
 
 ## Features
 
@@ -41,7 +43,7 @@ Both the webview UI and the extension host (VS Code commands, configuration desc
 
 ### Visual Studio Marketplace
 
-[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Killea.dsh-vsc)
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Killea.deepseek-gold-harness)
 
 ### Download or Build VSIX
 

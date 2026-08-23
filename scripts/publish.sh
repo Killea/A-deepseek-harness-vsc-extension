@@ -16,7 +16,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PUBLISHER="Killea"
-EXT_ID="dsh-vsc"
+EXT_ID="deepseek-gold-harness"
 TARGET=""
 DRY_RUN=false
 DO_VSCE=true

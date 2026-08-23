@@ -1,8 +1,8 @@
 {
-  "name": "dsh-vsc",
-  "displayName": "DeepSeek Harness",
-  "description": "DeepSeek Harness(dsh) for VS Code",
-  "version": "0.1.37",
+  "name": "deepseek-gold-harness",
+  "displayName": "DeepSeek Gold Harness",
+  "description": "DeepSeek Gold Harness — a VS Code extension for the DeepSeek Harness (dsh) agent runtime",
+  "version": "0.1.47",
   "publisher": "Killea",
   "author": {
     "name": "Killea",
@@ -35,7 +35,7 @@
     "ds"
   ],
   "main": "./dist/extension.js",
-  "icon": "ui/favicon.png",
+  "icon": "media/icon.png",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -43,18 +43,18 @@
     "viewsContainers": {
       "secondarySidebar": [
         {
-          "id": "killea-dsh-vsc",
+          "id": "killea-deepseek-gold-harness",
           "title": "%viewsContainers.secondarySidebar.title%",
           "icon": "ui/favicon.svg"
         }
       ]
     },
     "views": {
-      "killea-dsh-vsc": [
+      "killea-deepseek-gold-harness": [
         {
           "icon": "ui/favicon.svg",
           "type": "webview",
-          "id": "killea-dsh-vsc.chat",
+          "id": "killea-deepseek-gold-harness.chat",
           "name": "%views.chat.name%",
           "contextualTitle": "%views.chat.contextualTitle%"
         }
@@ -63,44 +63,44 @@
     "menus": {
       "editor/title": [
         {
-          "command": "killea.dsh-vsc.focus.from-editor",
+          "command": "killea.deepseek-gold-harness.focus.from-editor",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
           "when": "false",
-          "command": "killea.dsh-vsc.focus.from-editor"
+          "command": "killea.deepseek-gold-harness.focus.from-editor"
         }
       ]
     },
     "commands": [
       {
-        "command": "killea.dsh-vsc.focus",
+        "command": "killea.deepseek-gold-harness.focus",
         "title": "%command.focus.title%"
       },
       {
-        "command": "killea.dsh-vsc.focus.from-editor",
+        "command": "killea.deepseek-gold-harness.focus.from-editor",
         "title": "%command.focus.from-editor.title%",
         "icon": "ui/favicon.svg"
       },
       {
-        "command": "killea.dsh-vsc.openInBrowser",
+        "command": "killea.deepseek-gold-harness.openInBrowser",
         "title": "%command.openInBrowser.title%"
       },
       {
-        "command": "killea.dsh-vsc.newSession",
+        "command": "killea.deepseek-gold-harness.newSession",
         "title": "%command.newSession.title%"
       },
       {
-        "command": "killea.dsh-vsc.refreshSessions",
+        "command": "killea.deepseek-gold-harness.refreshSessions",
         "title": "%command.refreshSessions.title%"
       }
     ],
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
-        "killea.dsh-vsc.dshPath": {
+        "killea.deepseek-gold-harness.dshPath": {
           "type": [
             "string",
             "null"
@@ -109,14 +109,14 @@
           "scope": "machine",
           "description": "%configuration.dshPath.description%"
         },
-        "killea.dsh-vsc.minDshVersion": {
+        "killea.deepseek-gold-harness.minDshVersion": {
           "type": "string",
           "default": "0.1.0-rc.6",
           "scope": "machine",
           "description": "%configuration.minDshVersion.description%",
           "deprecationMessage": "%configuration.minDshVersion.deprecationMessage%"
         },
-        "killea.dsh-vsc.externalUrl": {
+        "killea.deepseek-gold-harness.externalUrl": {
           "type": [
             "string",
             "null"
@@ -125,7 +125,7 @@
           "scope": "machine",
           "description": "%configuration.externalUrl.description%"
         },
-        "killea.dsh-vsc.discoveryPort": {
+        "killea.deepseek-gold-harness.discoveryPort": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
@@ -133,7 +133,7 @@
           "scope": "machine",
           "description": "%configuration.discoveryPort.description%"
         },
-        "killea.dsh-vsc.managedPort": {
+        "killea.deepseek-gold-harness.managedPort": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
@@ -141,13 +141,13 @@
           "scope": "machine",
           "description": "%configuration.managedPort.description%"
         },
-        "killea.dsh-vsc.autoStart": {
+        "killea.deepseek-gold-harness.autoStart": {
           "type": "boolean",
           "default": true,
           "scope": "machine",
           "description": "%configuration.autoStart.description%"
         },
-        "killea.dsh-vsc.locale": {
+        "killea.deepseek-gold-harness.locale": {
           "type": [
             "string",
             "null"
