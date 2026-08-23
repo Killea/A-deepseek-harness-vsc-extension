@@ -12,6 +12,11 @@ import { formatCapacity, parseCapacity } from './validate.ts'
 
 type CapacityField = 'contextWindow' | 'maxTokens'
 
+const MODALITY_FIELD: Record<string, string> = {
+  deepseek: 'inputModalities',
+  'pi-ai': 'input',
+}
+
 function textOf(model: SettingsModelDraft, key: string): string {
   const value = model[key]
   return typeof value === 'string' ? value : ''
@@ -46,6 +51,8 @@ interface ModelCatalogEditorProps {
   probe?: SettingsProbe
   probeBlocked?: string
   onDiscover?: (probe: SettingsProbe) => Promise<DiscoveredModelView[]>
+  /** 适配器族：决定 modalities 字段名（deepseek=inputModalities, pi-ai=input）与是否显示 description。 */
+  layout?: 'deepseek' | 'pi-ai' | 'unknown'
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -75,6 +82,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
   const {
     models, overridden, onChange, onReset, disabled,
     defaultContextWindow, defaultMaxTokens, probe, probeBlocked, onDiscover,
+    layout,
   } = props
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | undefined>(undefined)
@@ -85,7 +93,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
 
   const bufferKey = (index: number, field: CapacityField): string => `${String(index)}:${field}`
 
-  const patch = (index: number, next: Record<string, string | number | undefined>): void => {
+  const patch = (index: number, next: Record<string, unknown>): void => {
     onChange(models.map((model, at) => {
       if (at !== index) return model
       const cleared = new Set(
@@ -104,6 +112,17 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
 
   const capacityText = (model: SettingsModelDraft, index: number, field: CapacityField): string =>
     editing.get(bufferKey(index, field)) ?? capacitySpelling(numberOf(model, field))
+
+  const modalityField = layout !== undefined ? MODALITY_FIELD[layout] : undefined
+  const supportsImages = (model: SettingsModelDraft): boolean => {
+    if (modalityField === undefined) return false
+    const modalities = model[modalityField]
+    return Array.isArray(modalities) && modalities.includes('image')
+  }
+  const toggleImageSupport = (index: number, enabled: boolean): void => {
+    if (modalityField === undefined) return
+    patch(index, { [modalityField]: enabled ? ['text', 'image'] : ['text'] })
+  }
 
   const reindexOnRemove = (current: ReadonlyMap<string, string>, index: number): Map<string, string> => {
     const next = new Map<string, string>()
@@ -184,7 +203,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
     fallback: number | undefined,
   ) => (
     <label className="flex flex-col gap-0.5">
-      <span className="text-xs text-description">{field === 'contextWindow' ? t('settings.contextWindow') : t('settings.maxTokens')}</span>
+      <span className="text-xs text-description" title={field === 'contextWindow' ? t('settings.contextWindowTip') : t('settings.maxTokensTip')}>{field === 'contextWindow' ? t('settings.contextWindow') : t('settings.maxTokens')}</span>
       <input
         className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
         type="text"
@@ -240,6 +259,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               type="text"
               value={textOf(model, 'id')}
               placeholder={t('settings.modelIdPlaceholder')}
+              title={t('settings.modelIdTip')}
               aria-label={`${t('settings.modelIdPlaceholder')} ${index + 1}`}
               disabled={disabled}
               onChange={(event) => { patch(index, { id: event.target.value }) }}
@@ -249,6 +269,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               type="text"
               value={textOf(model, 'name')}
               placeholder={t('settings.modelNamePlaceholder')}
+              title={t('settings.modelNameTip')}
               aria-label={`${t('settings.modelNamePlaceholder')} ${index + 1}`}
               disabled={disabled}
               onChange={(event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }) }}
@@ -274,13 +295,36 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               <Trash />
             </button>
           </div>
-          {expanded.has(index) ? (
-            <div className="mt-1.5 grid grid-cols-2 gap-2">
-              {capacityField(model, index, 'contextWindow',
-                defaultContextWindow !== undefined ? defaultContextWindow : undefined)}
-              {capacityField(model, index, 'maxTokens',
-                defaultMaxTokens !== undefined ? defaultMaxTokens : undefined)}
-            </div>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {capacityField(model, index, 'contextWindow',
+              defaultContextWindow !== undefined ? defaultContextWindow : undefined)}
+            {capacityField(model, index, 'maxTokens',
+              defaultMaxTokens !== undefined ? defaultMaxTokens : undefined)}
+          </div>
+          {modalityField !== undefined ? (
+            <label className="mt-1 flex items-center gap-1.5" title={t('settings.supportsImagesTip')}>
+              <input
+                type="checkbox"
+                checked={supportsImages(model)}
+                disabled={disabled}
+                onChange={(event) => { toggleImageSupport(index, event.target.checked) }}
+              />
+              <span className="text-xs text-description">{t('settings.supportsImages')}</span>
+            </label>
+          ) : null}
+          {expanded.has(index) && layout === 'deepseek' ? (
+            <label className="mt-1.5 flex flex-col gap-0.5">
+              <span className="text-xs text-description">{t('settings.modelDescription')}</span>
+              <input
+                className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
+                type="text"
+                value={textOf(model, 'description')}
+                placeholder={t('settings.modelDescriptionPlaceholder')}
+                aria-label={`${t('settings.modelDescription')} ${index + 1}`}
+                disabled={disabled}
+                onChange={(event) => { patch(index, { description: event.target.value === '' ? undefined : event.target.value }) }}
+              />
+            </label>
           ) : null}
         </div>
       ))}

@@ -16,7 +16,7 @@ import type {
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelCatalogEditor } from './ModelCatalogEditor.tsx'
 import { deletePath, getPath, hasPath, setPath } from './path.ts'
-import { apiKeyFailure, deriveKeyRef, modelDrafts, validateDeepSeekModels } from './validate.ts'
+import { apiKeyFailure, deriveKeyRef, modelDrafts, parseCapacity, formatCapacity, validateDeepSeekModels } from './validate.ts'
 import type { SettingsWire } from './wire.ts'
 
 type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
@@ -93,6 +93,27 @@ export function ProviderEditorCard(props: ProviderEditorCardProps) {
     setDraft(current => value === undefined ? deletePath(current, [key]) : setPath(current, [key], value))
   }
 
+  const CAPACITY_HINT: Readonly<Record<string, string>> = {
+    contextWindow: '256K',
+    maxTokens: '32K',
+    defaultContextWindow: '256K',
+    defaultMaxTokens: '32K',
+  }
+
+  const capacityTextFor = (source: unknown, key: string): string => {
+    const value = getPath(source, [key])
+    return typeof value === 'number' ? formatCapacity(value) : ''
+  }
+
+  const setCapacityField = (key: string, text: string): void => {
+    const parsed = parseCapacity(text)
+    setDraft(current => {
+      if (parsed === undefined) return deletePath(current, [key])
+      if (Number.isNaN(parsed)) return current
+      return setPath(current, [key], parsed)
+    })
+  }
+
   const modelFailure = validateDeepSeekModels(getPath(draft, ['models']))
   const keyFailure = apiKeyFailure(keyDraft)
   const keyValue = keyDraft.trim()
@@ -158,7 +179,8 @@ export function ProviderEditorCard(props: ProviderEditorCardProps) {
   const modelsOverridden = hasPath(draft, ['models'])
   const models = modelDrafts(modelsOverridden ? customModels : row.inheritedModels)
   const defaultContextWindow = getPath(fallback, ['defaultContextWindow'])
-  const defaultMaxTokens = getPath(fallback, ['maxTokens'])
+  const routeMaxTokensKey = layout === 'deepseek' ? 'maxTokens' : 'defaultMaxTokens'
+  const defaultMaxTokens = getPath(fallback, [routeMaxTokensKey])
 
   const catalogProps = {
     models,
@@ -202,70 +224,99 @@ export function ProviderEditorCard(props: ProviderEditorCardProps) {
             ? <p className="text-xs text-error">{keyFailure === 'keyBlank' ? t('settings.apiKeyBlank') : t('settings.apiKeyInvalidChars')}</p>
             : null}
           {credentialOnly === true ? null : (
-            <details className="rounded-xs border border-border-panel px-2 py-1">
-              <summary className="cursor-pointer text-xs text-description">{t('settings.customSettings')}</summary>
-              <div className="mt-1.5 flex flex-col gap-1.5">
-                {ownsIdentity ? (
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-xs text-description">{t('settings.displayName')}</span>
-                    <input
-                      className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
-                      type="text"
-                      value={stringAt(draft, 'displayName') ?? ''}
-                      placeholder={stringAt(getPath(namespace.base, settingsPath), 'displayName') ?? row.provider}
-                      aria-label={t('settings.displayName')}
-                      disabled={disabled}
-                      onChange={(event) => { setField('displayName', event.target.value) }}
-                    />
-                  </label>
-                ) : null}
+            <div className="flex flex-col gap-1.5">
+              {ownsIdentity ? (
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-xs text-description">{t('settings.baseUrl')}</span>
+                  <span className="text-xs text-description" title={t('settings.displayNameTip')}>{t('settings.displayName')}</span>
                   <input
                     className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
                     type="text"
-                    value={stringAt(draft, 'baseURL') ?? ''}
-                    placeholder={layout === 'deepseek'
-                      ? DEEPSEEK_PUBLIC_BASE_URL
-                      : stringAt(fallback, 'baseURL') ?? t('settings.baseUrlPlaceholderDefault')}
-                    aria-label={t('settings.baseUrl')}
+                    value={stringAt(draft, 'displayName') ?? ''}
+                    placeholder={stringAt(getPath(namespace.base, settingsPath), 'displayName') ?? row.provider}
+                    aria-label={t('settings.displayName')}
                     disabled={disabled}
-                    onChange={(event) => { setField('baseURL', event.target.value === '' ? undefined : event.target.value) }}
+                    onChange={(event) => { setField('displayName', event.target.value) }}
                   />
                 </label>
-                {ownsIdentity ? (
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-xs text-description">{t('settings.protocol')}</span>
-                    <select
-                      className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
-                      value={stringAt(draft, 'api') ?? stringAt(fallback, 'api') ?? ''}
-                      aria-label={t('settings.protocol')}
-                      disabled={disabled}
-                      onChange={(event) => { setField('api', event.target.value) }}
-                    >
-                      {stringAt(draft, 'api') === undefined && stringAt(fallback, 'api') === undefined
-                        ? <option value="">{t('settings.protocolUnselected')}</option>
-                        : null}
-                      {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
-                    </select>
-                  </label>
-                ) : null}
-                {layout === 'deepseek' ? (
-                  <ModelCatalogEditor
-                    {...catalogProps}
-                    defaultContextWindow={typeof defaultContextWindow === 'number' ? defaultContextWindow : undefined}
-                    defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
+              ) : null}
+              <label className="flex flex-col gap-0.5">
+                <span className="text-xs text-description" title={t('settings.baseUrlTip')}>{t('settings.baseUrl')}</span>
+                <input
+                  className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
+                  type="text"
+                  value={stringAt(draft, 'baseURL') ?? ''}
+                  placeholder={layout === 'deepseek'
+                    ? DEEPSEEK_PUBLIC_BASE_URL
+                    : stringAt(fallback, 'baseURL') ?? t('settings.baseUrlPlaceholderDefault')}
+                  aria-label={t('settings.baseUrl')}
+                  disabled={disabled}
+                  onChange={(event) => { setField('baseURL', event.target.value === '' ? undefined : event.target.value) }}
+                />
+              </label>
+              {ownsIdentity ? (
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-xs text-description" title={t('settings.protocolTip')}>{t('settings.protocol')}</span>
+                  <select
+                    className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
+                    value={stringAt(draft, 'api') ?? stringAt(fallback, 'api') ?? ''}
+                    aria-label={t('settings.protocol')}
+                    disabled={disabled}
+                    onChange={(event) => { setField('api', event.target.value) }}
+                  >
+                    {stringAt(draft, 'api') === undefined && stringAt(fallback, 'api') === undefined
+                      ? <option value="">{t('settings.protocolUnselected')}</option>
+                      : null}
+                    {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
+                  </select>
+                </label>
+              ) : null}
+              {layout === 'deepseek' ? (
+                <ModelCatalogEditor
+                  {...catalogProps}
+                  layout={layout}
+                  defaultContextWindow={typeof defaultContextWindow === 'number' ? defaultContextWindow : undefined}
+                  defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
+                />
+              ) : (
+                <ModelCatalogEditor
+                  {...catalogProps}
+                  layout={layout}
+                  probe={probe}
+                  probeBlocked={keyFailure}
+                  onDiscover={(p) => wire.discover(p)}
+                />
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-xs text-description" title={t('settings.defaultContextWindowTip')}>{t('settings.defaultContextWindow')}</span>
+                  <input
+                    className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
+                    type="text"
+                    inputMode="numeric"
+                    value={capacityTextFor(draft, 'defaultContextWindow') || capacityTextFor(fallback, 'defaultContextWindow')}
+                    placeholder={CAPACITY_HINT.defaultContextWindow}
+                    aria-label={t('settings.defaultContextWindow')}
+                    disabled={disabled}
+                    onChange={(event) => { setCapacityField('defaultContextWindow', event.target.value) }}
                   />
-                ) : (
-                  <ModelCatalogEditor
-                    {...catalogProps}
-                    probe={probe}
-                    probeBlocked={keyFailure}
-                    onDiscover={(p) => wire.discover(p)}
+                  <span className="text-[10px] text-description">{t('settings.defaultContextWindowHint')}</span>
+                </label>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-xs text-description" title={t('settings.defaultMaxTokensTip')}>{t('settings.defaultMaxTokens')}</span>
+                  <input
+                    className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
+                    type="text"
+                    inputMode="numeric"
+                    value={capacityTextFor(draft, routeMaxTokensKey) || capacityTextFor(fallback, routeMaxTokensKey)}
+                    placeholder={CAPACITY_HINT.defaultMaxTokens}
+                    aria-label={t('settings.defaultMaxTokens')}
+                    disabled={disabled}
+                    onChange={(event) => { setCapacityField(routeMaxTokensKey, event.target.value) }}
                   />
-                )}
+                  <span className="text-[10px] text-description">{t('settings.defaultMaxTokensHint')}</span>
+                </label>
               </div>
-            </details>
+            </div>
           )}
         </>
       )}
