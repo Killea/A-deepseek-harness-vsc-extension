@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   PendingAnswer,
   PendingItemView,
@@ -109,7 +110,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`cursor-pointer rounded px-3 py-1 text-xs transition-colors disabled:cursor-default disabled:opacity-50 ${cls}`}
+      className={`cursor-pointer rounded-xs px-3 py-1 text-xs transition-colors disabled:cursor-default disabled:opacity-50 ${cls}`}
     >
       {children}
     </button>
@@ -133,6 +134,7 @@ function ApprovalCardView({
   feedback?: string
   onAnswer: (key: string, answer: PendingAnswer) => void
 }) {
+  const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   useResetBusyOnError(busy, setBusy, feedback)
   const answer = (outcome: 'allowed-once' | 'rejected'): void => {
@@ -153,21 +155,21 @@ function ApprovalCardView({
     <div tabIndex={0} onKeyDown={onKeyDown} className="outline-none">
       <CardShell
         tone="approval"
-        header="等待审批"
-        ariaLabel={item.reason ?? `工具 ${item.toolName} 请求审批`}
+        header={t('pending.awaitingApproval')}
+        ariaLabel={item.reason ?? t('pending.toolRequestApproval', { name: item.toolName })}
         feedback={feedback}
         actions={
           <>
             <ActionButton variant="outline" disabled={busy} onClick={() => answer('rejected')}>
-              拒绝
+              {t('pending.reject')}
             </ActionButton>
             <ActionButton variant="primary" disabled={busy} onClick={() => answer('allowed-once')}>
-              允许一次
+              {t('pending.allowOnce')}
             </ActionButton>
           </>
         }
       >
-        <div className="break-words font-medium">{item.reason ?? `工具 ${item.toolName} 请求执行`}</div>
+        <div className="break-words font-medium">{item.reason ?? t('pending.toolRequestExecution', { name: item.toolName })}</div>
         <div className="mt-0.5 break-all font-mono text-xs text-description">{item.toolName}</div>
       </CardShell>
     </div>
@@ -186,6 +188,7 @@ function PlanReviewCardView({
   onAnswer: (key: string, answer: PendingAnswer) => void
   onCancel: (key: string) => void
 }) {
+  const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   useResetBusyOnError(busy, setBusy, feedback)
   const decide = (label: string): void => {
@@ -206,21 +209,21 @@ function PlanReviewCardView({
     <div tabIndex={0} onKeyDown={onKeyDown} className="outline-none">
       <CardShell
         tone="plan"
-        header="计划审批"
+        header={t('pending.planReview')}
         ariaLabel={item.question}
         feedback={feedback}
         actions={
           <>
             <ActionButton variant="ghost" disabled={busy} onClick={() => onCancel(item.key)}>
-              讨论
+              {t('pending.discuss')}
             </ActionButton>
             {item.decline !== undefined ? (
               <ActionButton variant="outline" disabled={busy} onClick={() => decide(item.decline!)}>
-                拒绝
+                {t('pending.reject')}
               </ActionButton>
             ) : null}
             <ActionButton variant="primary" disabled={busy} onClick={() => decide(item.approve)}>
-              批准
+              {t('pending.approve')}
             </ActionButton>
           </>
         }
@@ -256,6 +259,7 @@ function QuestionEditor({
   focused: boolean
   onFocus: () => void
 }) {
+  const { t } = useTranslation()
   const toggle = (label: string): void => {
     if (q.multiSelect === true) {
       const selected = draft.selected.includes(label)
@@ -268,7 +272,7 @@ function QuestionEditor({
     }
   }
   return (
-    <div className={focused ? 'rounded bg-interactive-bg-hover/50' : ''} onMouseDown={onFocus}>
+    <div className={focused ? 'rounded-xs bg-interactive-bg-hover/50' : ''} onMouseDown={onFocus}>
       <div className="flex items-baseline gap-2">
         <span className="shrink-0 text-[11px] text-description">
           {index + 1}/{count}
@@ -293,7 +297,7 @@ function QuestionEditor({
                 type="button"
                 onClick={() => toggle(opt.label)}
                 title={opt.description}
-                className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
+                className={`flex w-full cursor-pointer items-center gap-2 rounded-xs px-2 py-1.5 text-left text-sm ${
                   selected ? 'bg-interactive-bg-hover' : 'hover:bg-interactive-bg-hover/50'
                 }`}
               >
@@ -325,11 +329,11 @@ function QuestionEditor({
           })}
         </div>
       ) : null}
-      <div className="mt-1.5 flex items-center gap-2 rounded px-2 py-1">
+      <div className="mt-1.5 flex items-center gap-2 rounded-xs px-2 py-1">
         <input
           type="text"
           value={draft.custom}
-          placeholder="输入其它答案…"
+          placeholder={t('pending.customPlaceholder')}
           onFocus={onFocus}
           onKeyDown={(e) => {
             // 文本行内方向键只移动光标，不触发卡片翻页；Enter/Esc 仍上浮（提交/取消）。
@@ -363,6 +367,7 @@ function QuestionCardView({
   onAnswer: (key: string, answer: PendingAnswer) => void
   onCancel: (key: string) => void
 }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false)
   useResetBusyOnError(busy, setBusy, feedback)
@@ -400,7 +405,7 @@ function QuestionCardView({
     if (missing >= 0) {
       setPage(missing)
       setActive(missing)
-      setValidation('还有问题未回答，请回答或跳过后再提交。')
+      setValidation(t('pending.validationMissing'))
       return
     }
     setValidation(null)
@@ -470,16 +475,16 @@ function QuestionCardView({
     <div tabIndex={0} onKeyDown={onKeyDown} className="outline-none">
       <CardShell
         tone="question"
-        header={`问询${count > 1 ? `（${page + 1}/${count}）` : ''}`}
+        header={count > 1 ? t('pending.questionTitlePaged', { page: page + 1, count }) : t('pending.questionTitle')}
         ariaLabel={q.question}
         feedback={validation ?? feedback}
         actions={
           <>
             <ActionButton variant="ghost" disabled={busy} onClick={() => onCancel(item.key)}>
-              取消
+              {t('common.cancel')}
             </ActionButton>
             <ActionButton variant="outline" disabled={busy} onClick={skip}>
-              跳过
+              {t('common.skip')}
             </ActionButton>
             {count > 1 ? (
               <>
@@ -500,7 +505,7 @@ function QuestionCardView({
               </>
             ) : null}
             <ActionButton variant="primary" disabled={busy} onClick={submit}>
-              {busy ? <IconLoadingOutline16 size={12} className="animate-spin" /> : '提交'}
+              {busy ? <IconLoadingOutline16 size={12} className="animate-spin" /> : t('common.submit')}
             </ActionButton>
           </>
         }
@@ -527,14 +532,15 @@ function QuestionCardView({
  * 排队计数。每张卡用 key 做 React key（结算后卸载、answered 态不泄漏到下一请求）。
  */
 export function PendingDialog({ items, onAnswer, onCancel, errors }: PendingDialogProps) {
+  const { t } = useTranslation()
   const first = items[0]
   if (!first) return null
   const extra = items.length - 1
   return (
     <div className="relative">
       {extra > 0 ? (
-        <div className="pointer-events-none absolute right-3.5 top-1 z-10 rounded bg-muted/80 px-1.5 py-0.5 text-[10px] text-description">
-          还有 {extra} 个待处理
+        <div className="pointer-events-none absolute right-3.5 top-1 z-10 rounded-xs bg-muted/80 px-1.5 py-0.5 text-[10px] text-description">
+          {t('pending.pendingCount', { count: extra })}
         </div>
       ) : null}
       {first.kind === 'approval' ? (

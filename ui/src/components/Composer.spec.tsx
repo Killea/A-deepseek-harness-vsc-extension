@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ActiveFileView, ComposerSubmitGesture } from '../../../src/shared/protocol.ts'
+import '../i18n.ts'
 import { Composer } from './Composer.tsx'
 
 const FILE: ActiveFileView = {
@@ -84,7 +85,7 @@ describe('Composer auto-attach file chip', () => {
     const onActiveFileToggle = vi.fn()
     const { getByTitle } = renderComposer({ onActiveFileToggle })
 
-    fireEvent.click(getByTitle('已启用：该文件将作为 @ 引用随消息发送（点击停用）'))
+    fireEvent.click(getByTitle('Enabled: this file will be sent as an @ reference with the message (click to disable)'))
 
     expect(onActiveFileToggle).toHaveBeenCalledWith(false)
   })
@@ -92,7 +93,7 @@ describe('Composer auto-attach file chip', () => {
   it('renders the disabled state (eye-off + dimmed)', () => {
     const { getByTitle } = renderComposer({ activeFileEnabled: false })
 
-    expect(getByTitle('已停用：该文件不会作为对话输入（点击启用）')).not.toBeNull()
+    expect(getByTitle('Disabled: this file will not be used as conversation input (click to enable)')).not.toBeNull()
   })
 
   it('shows the dirty dot for unsaved files', () => {
@@ -100,13 +101,13 @@ describe('Composer auto-attach file chip', () => {
       activeFile: { ...FILE, dirty: true },
     })
 
-    expect(getByTitle('有未保存的修改')).not.toBeNull()
+    expect(getByTitle('Has unsaved changes')).not.toBeNull()
   })
 
   it('sends the absolute path when the file is enabled', () => {
     const { onSend, getByTitle } = renderComposer()
 
-    fireEvent.click(getByTitle('发送'))
+    fireEvent.click(getByTitle('Send'))
 
     expect(onSend).toHaveBeenCalledWith('你好', 'enter', ['/repo/src/main.ts'])
   })
@@ -114,7 +115,7 @@ describe('Composer auto-attach file chip', () => {
   it('sends no attachments when the file is disabled', () => {
     const { onSend, getByTitle } = renderComposer({ activeFileEnabled: false })
 
-    fireEvent.click(getByTitle('发送'))
+    fireEvent.click(getByTitle('Send'))
 
     expect(onSend).toHaveBeenCalledWith('你好', 'enter', [])
   })
@@ -122,7 +123,7 @@ describe('Composer auto-attach file chip', () => {
   it('sends no attachments when there is no active file', () => {
     const { onSend, getByTitle } = renderComposer({ activeFile: null })
 
-    fireEvent.click(getByTitle('发送'))
+    fireEvent.click(getByTitle('Send'))
 
     expect(onSend).toHaveBeenCalledWith('你好', 'enter', [])
   })
@@ -133,6 +134,6 @@ describe('Composer auto-attach file chip', () => {
     const { container } = renderComposer()
 
     // 无权限投影 → 席位隐藏，但发送路径不受影响。
-    expect(container.querySelector('button[title="发送"]')).not.toBeNull()
+    expect(container.querySelector('button[title="Send"]')).not.toBeNull()
   })
 })

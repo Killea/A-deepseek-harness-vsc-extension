@@ -31,6 +31,8 @@ export interface SettingsWire {
     behavior: BusyEnterBehavior,
     expectedRevision: number,
   ): Promise<SettingsReply>;
+  /** 写显示语言（weinibuliu.dsh-vsc.locale；null = 自动跟随 VS Code）。 */
+  selectLocale(locale: string | null): Promise<SettingsReply>;
   /** 在当前 VS Code 窗口打开 settings.yaml（fire-and-forget）。 */
   openSettingsYaml(): void;
   /** 打开 VS Code 原生设置页，并过滤到本扩展贡献的 DSH 设置。 */

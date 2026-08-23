@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ConversationItem, ToolResultView } from '../../../src/shared/protocol.ts'
-import { MarkdownText, type MarkdownFileMentions } from '../markdown/MarkdownText.tsx'
+import { MarkdownText, type MarkdownCodeLabels, type MarkdownFileMentions } from '../markdown/MarkdownText.tsx'
 import {
   IconApiOutline14,
   IconBrowseOutline16,
@@ -79,6 +80,7 @@ function UserItemView({ text }: { text: string }) {
  * 流式期间标题 shimmer 且自动滚底；结束后自动收起（除非用户手动展开过）。
  */
 function ThinkingSection({ reasoning, streaming }: { reasoning: string; streaming: boolean }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(streaming)
   const [userToggled, setUserToggled] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -125,7 +127,7 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
               : ''
           }
         >
-          {streaming ? '思考中…' : '思考'}
+          {streaming ? t('chat.thinkingStreaming') : t('chat.thinking')}
         </span>
         {expanded ? (
           <IconChevronDownOutline14 size={12} className="shrink-0 text-description" />
@@ -156,11 +158,12 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
 
 /** 助手消息：思考块（可折叠）+ markdown 正文（ADR-0004）+ 流式光标。 */
 function AssistantItemView({
-  item, onOpenExternalUrl, fileMentions,
+  item, onOpenExternalUrl, fileMentions, codeLabels,
 }: {
   item: Extract<ConversationItem, { kind: 'assistant' }>
   onOpenExternalUrl: (url: string) => void
   fileMentions: MarkdownFileMentions
+  codeLabels: MarkdownCodeLabels
 }) {
   return (
     <div>
@@ -170,6 +173,7 @@ function AssistantItemView({
         streaming={item.partial}
         onOpenExternalUrl={onOpenExternalUrl}
         fileMentions={fileMentions}
+        codeLabels={codeLabels}
       />
       {item.partial ? (
         <span className="ml-0.5 inline-block h-[1em] w-0.5 animate-cursor-blink bg-foreground align-text-bottom" />
@@ -253,6 +257,7 @@ function ContextBody({
   item: Extract<ConversationItem, { kind: 'context' }>
   onOpenFile: (path: string) => void
 }) {
+  const { t } = useTranslation()
   const body = item.body
   if (body === null) {
     return (
@@ -269,7 +274,7 @@ function ContextBody({
       return (
         <div className="mt-1 space-y-1">
           {body.update ? (
-            <p className="text-[11px] text-description">技能目录已更新：以下目录取代此前所有技能列表。</p>
+            <p className="text-[11px] text-description">{t('chat.catalogUpdated')}</p>
           ) : null}
           <ul className="space-y-0.5">
             {shown.map((entry) => (
@@ -280,7 +285,7 @@ function ContextBody({
             ))}
           </ul>
           {body.entries.length > shown.length ? (
-            <p className="text-[11px] text-description">还有 {body.entries.length - shown.length} 个技能…</p>
+            <p className="text-[11px] text-description">{t('chat.moreSkills', { count: body.entries.length - shown.length })}</p>
           ) : null}
         </div>
       )
@@ -288,7 +293,7 @@ function ContextBody({
     case 'snapshot':
       return (
         <div className="mt-1 space-y-1">
-          <p className="text-[11px] text-description">本快照取代此前所有运行时上下文快照。</p>
+          <p className="text-[11px] text-description">{t('chat.snapshotReplaces')}</p>
           <dl className="space-y-1">
             {body.sections.map((section, index) => (
               <div key={index} className="space-y-0.5">
@@ -306,7 +311,7 @@ function ContextBody({
             {body.changes.map((change) => (
               <li key={change.path} className="flex items-baseline gap-1.5 text-xs">
                 <FileLink path={change.path} onOpen={onOpenFile} />
-                <span className="shrink-0 text-description">{instructionActionLabel(change.action, body.baseline)}</span>
+                <span className="shrink-0 text-description">{instructionActionLabel(change.action, body.baseline, t)}</span>
               </li>
             ))}
           </ul>
@@ -324,7 +329,7 @@ function ContextBody({
     case 'relay':
       return (
         <div className="mt-1 space-y-1">
-          <p className="text-[11px] text-description">来自会话 {body.senderSessionId}</p>
+          <p className="text-[11px] text-description">{t('chat.fromSession', { sessionId: body.senderSessionId })}</p>
           <pre className="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-normal text-description">
             {item.text}
           </pre>
@@ -338,10 +343,10 @@ function ContextBody({
               <li key={index} className="flex items-baseline gap-1.5 text-xs">
                 <span className="truncate font-mono text-badge-foreground">{reference.label}</span>
                 <span className="shrink-0 text-description">
-                  保留 {reference.retained} · 省略 {reference.omitted}
+                  {t('chat.recallRetained', { retained: reference.retained, omitted: reference.omitted })}
                 </span>
                 {reference.truncated ? (
-                  <span className="shrink-0 text-description">已截断</span>
+                  <span className="shrink-0 text-description">{t('chat.recallTruncated')}</span>
                 ) : null}
               </li>
             ))}
@@ -354,10 +359,10 @@ function ContextBody({
   }
 }
 
-function instructionActionLabel(action: 'set' | 'replace' | 'remove', baseline: boolean): string {
-  if (action === 'remove') return '已移除'
-  if (baseline) return '已载入'
-  return action === 'set' ? '已新增' : '已更新'
+function instructionActionLabel(action: 'set' | 'replace' | 'remove', baseline: boolean, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (action === 'remove') return t('chat.instructionRemoved')
+  if (baseline) return t('chat.instructionLoaded')
+  return action === 'set' ? t('chat.instructionAdded') : t('chat.instructionUpdated')
 }
 
 /** M3c 上下文注入节点：折叠披露行（角色本地化 + 生产者名原样；notice 的 summary 亦显示在折叠行，展开看 form 正文）。 */
@@ -368,8 +373,9 @@ function ContextRowView({
   item: Extract<ConversationItem, { kind: 'context' }>
   onOpenFile: (path: string) => void
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-  const title = item.role === 'recall' ? '跨会话召回' : '上下文注入'
+  const title = item.role === 'recall' ? t('chat.crossSessionRecall') : t('chat.contextInjection')
   const summary = item.body?.form === 'notice' ? item.body.summary : null
   return (
     <div className="my-1 rounded-xs border border-border-panel p-2">
@@ -490,6 +496,7 @@ function ToolCardView({
   workspacePath?: string
   onOpenFile: (path: string) => void
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const label = item.name !== null ? item.name : '…'
   const bodyText = item.outcome?.text
@@ -533,8 +540,8 @@ function ToolCardView({
             />
             {item.summary.lines !== undefined ? (
               <span className="text-description">
-                {' '}({item.summary.lines} Lines
-                {item.summary.bytes ? ` | ${formatKb(item.summary.bytes)}kb` : ''})
+                {' '}{t('chat.linesSuffix', { count: item.summary.lines })}
+                {item.summary.bytes ? t('chat.bytesSuffix', { size: formatKb(item.summary.bytes) }) : ''}
               </span>
             ) : null}
           </span>
@@ -594,19 +601,20 @@ function ToolCardView({
 }
 
 function ItemView({
-  item, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions,
+  item, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions, codeLabels,
 }: {
   item: ConversationItem
   workspacePath?: string
   onOpenFile: (path: string) => void
   onOpenExternalUrl: (url: string) => void
   fileMentions: MarkdownFileMentions
+  codeLabels: MarkdownCodeLabels
 }) {
   switch (item.kind) {
     case 'user':
       return <UserItemView text={item.text} />
     case 'assistant':
-      return <AssistantItemView item={item} onOpenExternalUrl={onOpenExternalUrl} fileMentions={fileMentions} />
+      return <AssistantItemView item={item} onOpenExternalUrl={onOpenExternalUrl} fileMentions={fileMentions} codeLabels={codeLabels} />
     case 'note':
       return <div className="my-1 text-center text-xs text-description">{item.text}</div>
     case 'command':
@@ -623,6 +631,7 @@ function ItemView({
 export function ChatArea({
   items, running, sessionId, hasMore, loadingOlder, loadOlderError, onLoadOlder, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions,
 }: ChatAreaProps) {
+  const { t } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
   // 加载更早的滚动锚：记录点击时视口顶相对内容顶的偏移，新页前置后复位——
   // 视口停在原消息上不跳动（对齐参考客户端 loadOlderAnchored）。
@@ -669,6 +678,12 @@ export function ChatArea({
     onLoadOlder?.()
   }
 
+  // 代码块复制按钮标签（随语言切换更新；localeVersion key 强制重挂载时重建）。
+  const codeLabels: MarkdownCodeLabels = {
+    copyLabel: t('common.copy'),
+    copiedLabel: t('common.copied'),
+  }
+
   const loadOlderRow = hasMore ? (
     <div className="flex flex-col items-center gap-1 pt-2.5">
       <button
@@ -677,7 +692,7 @@ export function ChatArea({
         onClick={handleLoadOlder}
         className="cursor-pointer rounded-xs border border-border-panel px-2.5 py-1 text-xs text-description hover:border-border hover:text-foreground disabled:cursor-wait disabled:opacity-60"
       >
-        {loadingOlder ? '加载中…' : '加载更早'}
+        {loadingOlder ? t('chat.loadingOlder') : t('chat.loadOlder')}
       </button>
       {loadOlderError ? <p className="text-xs text-error">{loadOlderError}</p> : null}
     </div>
@@ -690,7 +705,7 @@ export function ChatArea({
           {loadOlderRow}
           <div className="flex flex-1 items-center justify-center">
             <p className="px-6 text-center text-sm text-description">
-              {running ? '回复中…' : '选择一个会话，或点击 ＋ 新建。'}
+              {running ? t('chat.emptyRunning') : t('chat.emptyIdle')}
             </p>
           </div>
         </div>
@@ -709,13 +724,14 @@ export function ChatArea({
                 onOpenFile={onOpenFile}
                 onOpenExternalUrl={onOpenExternalUrl}
                 fileMentions={fileMentions}
+                codeLabels={codeLabels}
               />
             </div>
           ))}
           {running ? (
             <div className="flex items-center gap-1.5 pt-2.5 text-xs text-description">
               <IconLoadingOutline16 size={12} className="shrink-0 animate-spin" />
-              回复中…
+              {t('chat.replying')}
             </div>
           ) : null}
         </div>

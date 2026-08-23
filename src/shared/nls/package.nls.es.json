@@ -1,0 +1,19 @@
+{
+  "command.focus.title": "dsh: Abrir chat",
+  "command.focus.from-editor.title": "Abrir Deepseek Harness",
+  "command.openInBrowser.title": "dsh: Abrir WebUI en el navegador",
+  "command.newSession.title": "dsh: Nueva sesión",
+  "command.refreshSessions.title": "dsh: Actualizar sesiones",
+  "configuration.title": "DeepSeek Harness",
+  "configuration.dshPath.description": "Ruta explícita al ejecutable dsh utilizado por el runtime global gestionado. Vacío: detección vía PATH, prefijo global de npm, luego npx --no-install.",
+  "configuration.minDshVersion.description": "Piso de compatibilidad reservado. Las versiones se registran actualmente pero no se rechazan.",
+  "configuration.minDshVersion.deprecationMessage": "Temporalmente inactivo hasta que DSH exponga una versión de compatibilidad fiable.",
+  "configuration.externalUrl.description": "URL base DSH externa. Cuando se establece, la extensión solo se conecta/desconecta y no gestiona ese proceso.",
+  "configuration.discoveryPort.description": "Puerto de bucle invertido sondeado primero para una instancia DSH existente.",
+  "configuration.managedPort.description": "Puerto de bucle invertido fijo utilizado por el runtime DSH gestionado entre ventanas. Un listener que no sea DSH se informa como conflicto.",
+  "configuration.autoStart.description": "Resolver y conectar al runtime DSH global al abrir una ventana de espacio de trabajo.",
+  "configuration.locale.description": "Idioma de visualización de la interfaz de la extensión. Detecta automáticamente el idioma de VS Code cuando está vacío. Soportados: en, zh-cn, zh-tw, ja, de, fr, es.",
+  "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
+  "views.chat.name": "Chat",
+  "views.chat.contextualTitle": "Chat dsh"
+}

@@ -81,7 +81,7 @@
   font-size: 0.9em;
   background: var(--vscode-textCodeBlock-background, rgba(127 127 127 / 0.15));
   padding: 0.1em 0.3em;
-  border-radius: 3px;
+  border-radius: 6px;
 }
 
 .markdown pre code {

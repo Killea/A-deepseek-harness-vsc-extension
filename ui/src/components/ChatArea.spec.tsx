@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ConversationItem } from '../../../src/shared/protocol.ts'
+import '../i18n.ts'
 import { ChatArea } from './ChatArea.tsx'
 
 const noopFileMentions = { resolve: () => undefined }
@@ -41,14 +42,14 @@ describe('ChatArea load-older row', () => {
   it('hides the row when hasMore is false', () => {
     const { queryByText } = renderChatArea({ hasMore: false })
 
-    expect(queryByText('加载更早')).toBeNull()
+    expect(queryByText('Load earlier')).toBeNull()
   })
 
   it('renders the button when hasMore is true and invokes onLoadOlder', () => {
     const onLoadOlder = vi.fn()
     const { getByText } = renderChatArea({ hasMore: true, onLoadOlder })
 
-    fireEvent.click(getByText('加载更早'))
+    fireEvent.click(getByText('Load earlier'))
 
     expect(onLoadOlder).toHaveBeenCalledTimes(1)
   })
@@ -56,7 +57,7 @@ describe('ChatArea load-older row', () => {
   it('disables the button and shows the loading label while paging', () => {
     const { getByText } = renderChatArea({ hasMore: true, loadingOlder: true })
 
-    const button = getByText('加载中…').closest('button')
+    const button = getByText('Loading…').closest('button')
     expect(button).not.toBeNull()
     expect((button as HTMLButtonElement).disabled).toBe(true)
   })
@@ -76,8 +77,8 @@ describe('ChatArea load-older row', () => {
       hasMore: true,
     })
 
-    expect(getByText('加载更早')).not.toBeNull()
-    expect(getByText('选择一个会话，或点击 ＋ 新建。')).not.toBeNull()
+    expect(getByText('Load earlier')).not.toBeNull()
+    expect(getByText('Select a session, or click + to create one.')).not.toBeNull()
     const rows = container.querySelectorAll('button')
     expect(rows.length).toBe(1)
   })
@@ -88,7 +89,7 @@ describe('ChatArea load-older row', () => {
     const onLoadOlder = vi.fn()
     const first = renderChatArea({ hasMore: true, onLoadOlder })
 
-    fireEvent.click(first.getByText('加载更早'))
+    fireEvent.click(first.getByText('Load earlier'))
     first.rerender(
       <ChatArea
         items={items('older-1', 'older-2', 'a', 'b')}

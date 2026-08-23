@@ -36,6 +36,7 @@ import type { SkillService } from "../services/skill-service.ts";
 import type { AgentPresetService } from "../services/agent-preset-service.ts";
 import type { PendingInteractionService } from "../services/pending-interaction-service.ts";
 import type { SettingsService } from "../services/settings-service.ts";
+import type { I18nService } from "../services/i18n-service.ts";
 import type { DshLauncher } from "../dsh/discovery.ts";
 import type { DshOwnership } from "../services/dsh-service.ts";
 import { escapeHtml, getNonce, injectCsp, rewriteAssetUrls } from "./html.ts";
@@ -115,6 +116,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly agentPresets: AgentPresetService,
     private readonly pendingInteractions: PendingInteractionService,
     private readonly settings: SettingsService,
+    private readonly i18n: I18nService,
     private readonly dshFacts: () => DshFacts,
     private readonly pickDshPath: () => Promise<void>,
     private readonly restartDsh: () => Promise<void>,
@@ -174,6 +176,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
     void this.view.webview.postMessage(message);
+  }
+
+  /** i18n: 推送当前 locale 代码到 webview（hydrate + 配置变更时调用）。 */
+  postLocale(): void {
+    this.post({ type: "locale", locale: this.i18n.currentLocale });
+  }
+
+  /** 读取 locale 配置原始值（null = 自动跟随 VS Code；用于设置面板显示）。 */
+  private currentLocaleCode(): string | null {
+    return vscode.workspace
+      .getConfiguration("weinibuliu.dsh-vsc")
+      .get<string | null>("locale") ?? null;
   }
 
   async handleMessage(message: WebviewToExtensionMessage): Promise<void> {
@@ -377,7 +391,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             requestId: message.requestId,
             operation: "send",
             status: "failed",
-            text: "该会话已有 prompt 正在提交",
+            text: this.i18n.t("host.promptInFlight"),
           });
           return;
         }
@@ -416,7 +430,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
               type: "commandNotice",
               sessionId,
               level: "info",
-              text: result.command.text ?? "命令已执行",
+              text: result.command.text ?? this.i18n.t("host.commandExecuted"),
             });
           }
           if (operation.cancelRequested) await this.sessions.cancel(sessionId);
@@ -464,7 +478,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             type: "commandNotice",
             sessionId: message.sessionId,
             level: "error",
-            text: "活动会话不能归档",
+            text: this.i18n.t("host.activeSessionCannotArchive"),
           });
           return;
         }
@@ -523,6 +537,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           message.behavior,
           message.expectedRevision,
         );
+        break;
+      case "settingsSelectLocale":
+        await this.serveSelectLocale(message.id, message.locale);
         break;
       case "settingsPickDshPath":
         await this.pickDshPath();
@@ -627,7 +644,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (option === undefined) {
         this.agentPresets.fail(
           sourceSessionId,
-          `Agent Preset \"${agentPreset}\" 不可选择`,
+          this.i18n.t("host.agentPresetNotSelectable", { name: agentPreset }),
           true,
         );
         return;
@@ -643,7 +660,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (summary === undefined) {
         this.agentPresets.fail(
           sourceSessionId,
-          "无法确认当前会话状态",
+          this.i18n.t("host.cannotConfirmSessionState"),
           true,
         );
         return;
@@ -651,7 +668,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (!summary.blank) {
         this.agentPresets.fail(
           sourceSessionId,
-          "会话首次运行后 Agent Preset 已锁定",
+          this.i18n.t("host.agentPresetLockedAfterFirstRun"),
           true,
         );
         return;
@@ -822,6 +839,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         ? {}
         : { detail: facts.statusDetail }),
     });
+    // i18n: 推送当前 locale（webview 据此 changeLanguage；首载即落正确语言）。
+    this.postLocale();
     // 繁忙时 Enter 偏好 best-effort 加载（失败回落 queue，不阻塞重水合）。
     this.busyEnter = await this.settings.loadBusyEnter();
     await this.refreshSessions();
@@ -889,10 +908,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     currentTitle: string | null,
   ): Promise<void> {
     const input = await vscode.window.showInputBox({
-      prompt: "重命名会话",
+      prompt: this.i18n.t("host.renameSessionPrompt"),
       value: currentTitle ?? "",
       validateInput: (value) =>
-        value.trim().length === 0 ? "标题不能为空" : undefined,
+        value.trim().length === 0 ? this.i18n.t("host.titleRequired") : undefined,
     });
     if (input === undefined) return; // 用户取消
     try {
@@ -1187,7 +1206,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           type: "commandNotice",
           sessionId: sourceSessionId,
           level: "error",
-          text: `未知或格式错误的命令：${line}`,
+          text: this.i18n.t("host.unknownOrMalformedCommand", { line }),
         });
         this.post({
           type: "composerOperation",
@@ -1196,7 +1215,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           requestId,
           operation: "command",
           status: "failed",
-          text: `未知或格式错误的命令：${line}`,
+          text: this.i18n.t("host.unknownOrMalformedCommand", { line }),
         });
       } else {
         if (sourceSessionId === null) {
@@ -1281,7 +1300,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         type: "commandNotice",
         sessionId: sourceSessionId,
         level: "info",
-        text: `已选择模型 ${provider}/${model}`,
+        text: this.i18n.t("host.modelSelected", { provider, model }),
       });
       this.post({
         type: "composerOperation",
@@ -1397,7 +1416,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           type: "pendingError",
           sessionId,
           key,
-          text: `应答未受理：${receipt.reason}`,
+          text: this.i18n.t("host.answerNotAccepted", { reason: receipt.reason }),
         });
       }
     } catch (error) {
@@ -1417,7 +1436,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           type: "pendingError",
           sessionId,
           key,
-          text: `取消未受理：${receipt.reason}`,
+          text: this.i18n.t("host.cancelNotAccepted", { reason: receipt.reason }),
         });
       }
     } catch (error) {
@@ -1592,6 +1611,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           namespaces: {},
           credentials: {},
           protocols: [],
+          locale: this.currentLocaleCode(),
         },
       });
     }
@@ -1737,6 +1757,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  /** 「通用」页：写显示语言配置项（weinibuliu.dsh-vsc.locale）。 */
+  private async serveSelectLocale(
+    id: number,
+    locale: string | null,
+  ): Promise<void> {
+    try {
+      const config = vscode.workspace.getConfiguration("weinibuliu.dsh-vsc");
+      await config.update("locale", locale, vscode.ConfigurationTarget.Global);
+      // 直接用传入值 resolve locale，避免 config.update 传播延迟导致的竞态。
+      const resolved = this.i18n.resolveFromValue(locale);
+      this.i18n.setLocale(resolved);
+      this.post({ type: "locale", locale: resolved });
+      this.post({ type: "settingsReply", id, ok: true });
+      void this.refreshSettings();
+    } catch (error) {
+      this.post({ type: "settingsReply", id, ok: false, text: String(error) });
+    }
+  }
+
   /**
    * M6: 在当前 VS Code 窗口打开 settings.yaml（推导路径，非 dsh wire 的
    * settings.openDocument —— 那个会交给操作系统默认编辑器、另开窗口）。
@@ -1748,7 +1787,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       await vscode.window.showTextDocument(uri);
     } catch (error) {
       void vscode.window.showErrorMessage(
-        `打开 settings.yaml 失败: ${error instanceof Error ? error.message : String(error)}`,
+        this.i18n.t("host.openSettingsYamlFailed", {
+          error: error instanceof Error ? error.message : String(error),
+        }),
       );
     }
   }
@@ -1766,7 +1807,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       await vscode.window.showTextDocument(uri);
     } catch (error) {
       void vscode.window.showErrorMessage(
-        `打开文件失败: ${error instanceof Error ? error.message : String(error)}`,
+        this.i18n.t("host.openFileFailed", {
+          error: error instanceof Error ? error.message : String(error),
+        }),
       );
     }
   }
@@ -1786,7 +1829,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     try {
       html = readFileSync(indexPath, "utf8");
     } catch {
-      return this.errorHtml("webview 未构建：请先运行 pnpm run build");
+      return this.errorHtml(this.i18n.t("host.webviewNotBuilt"));
     }
     const nonce = getNonce();
     return injectCsp(

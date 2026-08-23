@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { DiscoveredModelView, SettingsModelDraft, SettingsProbe } from '../../../../src/shared/protocol.ts'
 import { formatCapacity, parseCapacity } from './validate.ts'
 
@@ -70,6 +71,7 @@ function Trash() {
 }
 
 export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
+  const { t } = useTranslation()
   const {
     models, overridden, onChange, onReset, disabled,
     defaultContextWindow, defaultMaxTokens, probe, probeBlocked, onDiscover,
@@ -141,7 +143,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
     try {
       const found = await onDiscover(probe)
       if (found.length === 0) {
-        setFailure('该端点没有返回模型')
+        setFailure(t('settings.noModelsFromEndpoint'))
         return
       }
       const known = new Set(models.map(model => textOf(model, 'id')))
@@ -182,14 +184,14 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
     fallback: number | undefined,
   ) => (
     <label className="flex flex-col gap-0.5">
-      <span className="text-xs text-description">{field === 'contextWindow' ? '上下文窗口' : '最大输出'}</span>
+      <span className="text-xs text-description">{field === 'contextWindow' ? t('settings.contextWindow') : t('settings.maxTokens')}</span>
       <input
         className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
         type="text"
         inputMode="numeric"
         value={capacityText(model, index, field)}
         placeholder={fallback === undefined ? CAPACITY_HINT[field] : formatCapacity(fallback)}
-        aria-label={`${field === 'contextWindow' ? '上下文窗口' : '最大输出'} ${index + 1}`}
+        aria-label={`${field === 'contextWindow' ? t('settings.contextWindow') : t('settings.maxTokens')} ${index + 1}`}
         disabled={disabled}
         onChange={(event) => { editCapacity(index, field, event.target.value) }}
       />
@@ -197,12 +199,12 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
   )
 
   return (
-    <section aria-label="模型">
+    <section aria-label={t('settings.modelCatalog')}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm">模型</span>
+          <span className="text-sm">{t('settings.modelCatalog')}</span>
           {overridden !== undefined
-            ? <span className="text-xs text-description">{overridden ? '已自定义' : '继承默认'}</span>
+            ? <span className="text-xs text-description">{overridden ? t('settings.modelsOverridden') : t('settings.modelsInherited')}</span>
             : null}
         </div>
         <div className="flex items-center gap-2">
@@ -213,7 +215,7 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               disabled={disabled}
               onClick={onReset}
             >
-              重置
+              {t('common.reset')}
             </button>
           ) : null}
           {hasFetch ? (
@@ -221,15 +223,15 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               type="button"
               className="text-xs text-link hover:text-link-hover disabled:opacity-50"
               disabled={disabled || busy || !askable || probeBlocked !== undefined}
-              title={probeBlocked ?? (askable ? undefined : '需要端点地址')}
+              title={probeBlocked ?? (askable ? undefined : t('settings.needEndpoint'))}
               onClick={() => { void fetchModels() }}
             >
-              {busy ? '获取中…' : '获取模型'}
+              {busy ? t('settings.fetchingModels') : t('settings.fetchModels')}
             </button>
           ) : null}
         </div>
       </div>
-      {models.length === 0 ? <p className="text-xs text-description">（暂无模型）</p> : null}
+      {models.length === 0 ? <p className="text-xs text-description">{t('settings.noModels')}</p> : null}
       {models.map((model, index) => (
         <div key={index} className="rounded-xs border border-border-panel p-1.5">
           <div className="flex items-center gap-1">
@@ -237,8 +239,8 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               className="min-w-0 flex-1 rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
               type="text"
               value={textOf(model, 'id')}
-              placeholder="模型 ID"
-              aria-label={`模型 ID ${index + 1}`}
+              placeholder={t('settings.modelIdPlaceholder')}
+              aria-label={`${t('settings.modelIdPlaceholder')} ${index + 1}`}
               disabled={disabled}
               onChange={(event) => { patch(index, { id: event.target.value }) }}
             />
@@ -246,17 +248,17 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
               className="min-w-0 flex-1 rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
               type="text"
               value={textOf(model, 'name')}
-              placeholder="显示名"
-              aria-label={`显示名 ${index + 1}`}
+              placeholder={t('settings.modelNamePlaceholder')}
+              aria-label={`${t('settings.modelNamePlaceholder')} ${index + 1}`}
               disabled={disabled}
               onChange={(event) => { patch(index, { name: event.target.value === '' ? undefined : event.target.value }) }}
             />
             <button
               type="button"
               className="input-icon-button flex size-5 items-center justify-center rounded-xs text-icon-foreground"
-              aria-label={`高级 ${index + 1}`}
+              aria-label={`${t('settings.advanced')} ${index + 1}`}
               aria-expanded={expanded.has(index)}
-              title="高级"
+              title={t('settings.advanced')}
               onClick={() => { toggle(index) }}
             >
               <Chevron open={expanded.has(index)} />
@@ -264,8 +266,8 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
             <button
               type="button"
               className="input-icon-button flex size-5 items-center justify-center rounded-xs text-error"
-              aria-label={`删除模型 ${index + 1}`}
-              title="删除模型"
+              aria-label={`${t('settings.deleteModel')} ${index + 1}`}
+              title={t('settings.deleteModel')}
               disabled={disabled}
               onClick={() => { remove(index) }}
             >
@@ -288,13 +290,13 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
         disabled={disabled}
         onClick={() => { onChange([...models, { id: '' }]) }}
       >
-        ＋ 添加模型
+        {t('settings.addModel')}
       </button>
       {failure !== undefined ? <p className="text-xs text-error">{failure}</p> : null}
       {candidates !== undefined ? (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">
           <div className="flex max-h-[70%] w-[85%] flex-col rounded-xs border border-border-panel bg-background p-3 shadow-lg">
-            <div className="mb-1 text-sm">选择要添加的模型</div>
+            <div className="mb-1 text-sm">{t('settings.selectModelsToAdd')}</div>
             <ul className="scrollable m-0 min-h-0 list-none overflow-y-auto p-0">
               {candidates.map(candidate => (
                 <li key={candidate.id} className="flex items-center gap-2 px-1 py-1">
@@ -321,14 +323,14 @@ export function ModelCatalogEditor(props: ModelCatalogEditorProps) {
                 className="rounded-xs border border-border-panel px-2.5 py-1 text-xs hover:bg-list-hover"
                 onClick={() => { setCandidates(undefined); setPicked(new Set()) }}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 className="rounded-xs bg-button-background px-2.5 py-1 text-xs text-button-foreground hover:bg-button-hover"
                 onClick={adoptPicked}
               >
-                采纳
+                {t('settings.adopt')}
               </button>
             </div>
           </div>

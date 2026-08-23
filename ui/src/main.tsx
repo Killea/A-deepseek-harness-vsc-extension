@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import favicon from '@ui/favicon.svg?url'
 import App from './App.tsx'
+import './i18n.ts'
 import './style.css'
 
 // Vite alias (@ui) resolves the favicon; `?url` forces a real asset file

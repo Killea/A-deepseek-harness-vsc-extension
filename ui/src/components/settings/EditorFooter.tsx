@@ -3,6 +3,8 @@
  * 进行中拒绝输入；卡片因只读/禁用仍可关闭。
  */
 
+import { useTranslation } from 'react-i18next'
+
 interface EditorFooterProps {
   busy: boolean
   submitDisabled: boolean
@@ -16,12 +18,16 @@ interface EditorFooterProps {
 export function EditorFooter({
   busy,
   submitDisabled,
-  submitLabel = '应用',
-  submitBusyLabel = '应用中…',
-  cancelLabel = '取消',
+  submitLabel,
+  submitBusyLabel,
+  cancelLabel,
   onCancel,
   onSubmit,
 }: EditorFooterProps) {
+  const { t } = useTranslation()
+  const resolvedSubmitLabel = submitLabel ?? t('common.apply')
+  const resolvedSubmitBusyLabel = submitBusyLabel ?? t('common.applying')
+  const resolvedCancelLabel = cancelLabel ?? t('common.cancel')
   return (
     <div className="mt-2 flex items-center justify-end gap-2">
       <button
@@ -30,7 +36,7 @@ export function EditorFooter({
         disabled={busy}
         onClick={onCancel}
       >
-        {cancelLabel}
+        {resolvedCancelLabel}
       </button>
       <button
         type="button"
@@ -38,7 +44,7 @@ export function EditorFooter({
         disabled={submitDisabled}
         onClick={onSubmit}
       >
-        {busy ? submitBusyLabel : submitLabel}
+        {busy ? resolvedSubmitBusyLabel : resolvedSubmitLabel}
       </button>
     </div>
   )

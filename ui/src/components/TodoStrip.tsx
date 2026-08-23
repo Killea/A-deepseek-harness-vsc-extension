@@ -10,6 +10,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { TodoItem } from '../../../src/shared/protocol.ts'
 
 interface TodoStripProps {
@@ -18,15 +19,15 @@ interface TodoStripProps {
 }
 
 /** "·"-joined per-status counts; zero-count segments omitted (a non-empty list keeps at least one). */
-function progressLabel(todos: TodoItem[]): string {
-  const done = todos.filter((t) => t.status === 'completed').length
-  const active = todos.filter((t) => t.status === 'in_progress').length
+function progressLabel(todos: TodoItem[], t: (key: string, opts?: Record<string, unknown>) => string): string {
+  const done = todos.filter((item) => item.status === 'completed').length
+  const active = todos.filter((item) => item.status === 'in_progress').length
   const pending = todos.length - done - active
   // U+2002 en-space 分隔（对齐 dsh web progressLabel：普通空格会被 HTML 折叠）。
   return [
-    ...(done > 0 ? [`${done} 已完成`] : []),
-    ...(active > 0 ? [`${active} 进行中`] : []),
-    ...(pending > 0 ? [`${pending} 待处理`] : []),
+    ...(done > 0 ? [t('todo.completed', { count: done })] : []),
+    ...(active > 0 ? [t('todo.inProgress', { count: active })] : []),
+    ...(pending > 0 ? [t('todo.pending', { count: pending })] : []),
   ].join('\u2002·\u2002')
 }
 
@@ -79,11 +80,12 @@ function StatusGlyph({ status }: { status: TodoItem['status'] }) {
 }
 
 export function TodoStrip({ todos }: TodoStripProps) {
+  const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(true)
   if (!todos || todos.length === 0) return null
 
   return (
-    <section className="flex-none px-3.5 pt-2" aria-label="任务">
+    <section className="flex-none px-3.5 pt-2" aria-label={t('todo.title')}>
       <div className="overflow-hidden rounded-xs border border-border-panel bg-muted/25">
         <button
           type="button"
@@ -100,8 +102,8 @@ export function TodoStrip({ todos }: TodoStripProps) {
             />
             <path d="M13 10.5l1.5 1.5L17 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform="translate(-1,0)" />
           </svg>
-          <span className="text-xs font-medium text-foreground">任务</span>
-          <span className="truncate text-xs text-description">{progressLabel(todos)}</span>
+          <span className="text-xs font-medium text-foreground">{t('todo.title')}</span>
+          <span className="truncate text-xs text-description">{progressLabel(todos, t)}</span>
           <span className="ml-auto shrink-0 text-xs text-description" aria-hidden>
             {collapsed ? '▾' : '▴'}
           </span>

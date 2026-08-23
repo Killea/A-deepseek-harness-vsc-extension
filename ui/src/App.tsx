@@ -43,6 +43,8 @@ import { noProviderReadiness } from './components/settings/readiness.ts'
 import { LoadingPage } from './components/LoadingPage.tsx'
 import type { SettingsReply, SettingsWire } from './components/settings/wire.ts'
 import { IconStopFill16 } from '../icons/index.tsx'
+import { setLocale } from './i18n.ts'
+import { useTranslation } from 'react-i18next'
 
 interface VscodeApi {
   postMessage(message: WebviewToExtensionMessage): void
@@ -68,6 +70,9 @@ function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
 }
 
 export default function App() {
+  const { t } = useTranslation()
+  const [localeVersion, setLocaleVersion] = useState(0)
+  const [settingsSection, setSettingsSection] = useState<'models' | 'general' | 'language' | 'about'>('models')
   const [serviceStatus, setServiceStatus] = useState<{ status: string; detail?: string }>({ status: 'starting' })
   // 瞬时操作错误通知（RPC/流级失败）：只进状态栏 detail，绝不驱动启动门。
   const [notice, setNotice] = useState<string | null>(null)
@@ -143,6 +148,13 @@ export default function App() {
         case 'serviceStatus':
           setServiceStatus({ status: message.status, ...(message.detail === undefined ? {} : { detail: message.detail }) })
           setNotice(null) // 生命周期变更取代瞬时通知
+          break
+        case 'locale':
+          void setLocale(message.locale).then(() => {
+            // 强制整个应用重新挂载，确保所有组件（包括 memo 化的 MarkdownText）
+            // 都用新语言重新渲染。
+            setLocaleVersion((v) => v + 1)
+          })
           break
         case 'notice':
           setNotice(message.text)
@@ -349,6 +361,8 @@ export default function App() {
       requestReply((id) => post({ type: 'settingsSelectPermissionDefault', id, preset, expectedRevision })),
     selectBusyEnter: (behavior, expectedRevision) =>
       requestReply((id) => post({ type: 'settingsSelectBusyEnter', id, behavior, expectedRevision })),
+    selectLocale: (locale) =>
+      requestReply((id) => post({ type: 'settingsSelectLocale', id, locale })),
     openSettingsYaml: () => post({ type: 'openSettingsYaml' }),
     openExtensionSettings: () => post({ type: 'openExtensionSettings' }),
     refresh: () => post({ type: 'settingsRefresh' }),
@@ -557,27 +571,31 @@ export default function App() {
 
   // 启动门：dsh 未 ready（discovering/starting）整页 loading；终态失败（error/stopped）整页「关于」gate。
   if (serviceStatus.status === 'discovering' || serviceStatus.status === 'starting') {
-    return <LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} />
+    return <div key={localeVersion}><LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} /></div>
   }
   if (serviceStatus.status === 'error' || serviceStatus.status === 'stopped') {
-    return <AboutGate panel={settingsPanel} wire={wire} onOpenInBrowser={() => post({ type: 'openInBrowser' })} />
+    return <div key={localeVersion}><AboutGate panel={settingsPanel} wire={wire} onOpenInBrowser={() => post({ type: 'openInBrowser' })} /></div>
   }
 
   // Cline ChatLayout：grid 行 [1fr auto]，消息区占满、composer 钉在底部。
   if (view === 'settings') {
     return (
-      <SettingsPage
-        panel={settingsPanel}
-        wire={wire}
-        onBack={handleCloseSettings}
-        onOpenInBrowser={() => post({ type: 'openInBrowser' })}
-      />
+      <div key={localeVersion}>
+        <SettingsPage
+          panel={settingsPanel}
+          wire={wire}
+          onBack={handleCloseSettings}
+          onOpenInBrowser={() => post({ type: 'openInBrowser' })}
+          section={settingsSection}
+          onSectionChange={setSettingsSection}
+        />
+      </div>
     )
   }
 
   // ready 但面板尚未到达（boot 首推面板的短暂窗口）→ 先 loading，避免聊天闪现后被引导页接管。
   if (serviceStatus.status === 'ready' && settingsPanel === null) {
-    return <LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} />
+    return <div key={localeVersion}><LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} /></div>
   }
 
   // 无可用 Provider 引导页：仅 credential-missing 且未暂离时拦截聊天（设置页照常可进）。
@@ -586,17 +604,19 @@ export default function App() {
     && !gateDismissed
     && noProviderReadiness(settingsPanel).kind === 'credential-missing') {
     return (
-      <NoProviderGate
-        panel={settingsPanel}
-        wire={wire}
-        onBack={() => setGateDismissed(true)}
-        onOpenSettings={handleOpenSettings}
-      />
+      <div key={localeVersion}>
+        <NoProviderGate
+          panel={settingsPanel}
+          wire={wire}
+          onBack={() => setGateDismissed(true)}
+          onOpenSettings={handleOpenSettings}
+        />
+      </div>
     )
   }
 
   return (
-    <div className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] overflow-hidden">
+    <div key={localeVersion} className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] overflow-hidden">
       <div className="flex min-h-0 flex-col overflow-hidden">
         {/* 预览版清理：ready（正常态）不占 header，非 ready（错误/重连/启动中/停止）仍显示。 */}
         {(serviceStatus.status !== 'ready' || notice !== null) && (
@@ -643,8 +663,8 @@ export default function App() {
             <button
               type="button"
               onClick={() => handleCancel(selectedSessionId)}
-              title="停止"
-              aria-label="停止生成"
+              title={t('common.stop')}
+              aria-label={t('common.stop')}
               className="input-icon-button absolute bottom-2 right-3 flex size-6 items-center justify-center rounded-xs text-error"
             >
               <IconStopFill16 size={15} />

@@ -7,12 +7,13 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { PermissionSelectView } from '../../../src/shared/protocol.ts'
 import {
   IconCheckOutline16,
   IconChevronDownOutline14,
 } from '../../icons/index.tsx'
-import { FULL_ACCESS_PRESET, permissionLabel } from '../permission.ts'
+import { FULL_ACCESS_PRESET } from '../permission.ts'
 
 interface PermissionSelectProps {
   /** permissions 投影快照（null = 能力缺席 → 席位隐藏）。 */
@@ -67,6 +68,7 @@ function permissionGlyph(value: string): React.ReactNode | undefined {
 }
 
 export function PermissionSelect({ value, onSelect, disabled }: PermissionSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
@@ -128,9 +130,16 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
 
   const options = value.options.filter((option) => option.value !== 'custom')
   const current = options.find((option) => option.value === value.currentValue)
+  const labelFor = (presetValue: string, fallbackName: string): string => {
+    if (presetValue === 'workspace-write') return t('permission.workspaceWrite')
+    if (presetValue === 'read-only') return t('permission.readOnly')
+    if (presetValue === FULL_ACCESS_PRESET) return t('permission.fullAccess')
+    if (presetValue === 'custom') return t('permission.customLabel')
+    return fallbackName
+  }
   const currentLabel = current === undefined
-    ? permissionLabel(value.currentValue, value.currentValue)
-    : permissionLabel(current.value, current.name)
+    ? labelFor(value.currentValue, value.currentValue)
+    : labelFor(current.value, current.name)
   const busy = confirming || disabled
 
   const close = (): void => {
@@ -207,7 +216,7 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
           <div className="max-h-[240px] overflow-y-auto py-1">
             {options.map((option, i) => {
               const selected = option.value === value.currentValue
-              const label = permissionLabel(option.value, option.name)
+              const label = labelFor(option.value, option.name)
               return (
                 <button
                   key={option.value}
@@ -236,9 +245,9 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
       {confirming && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">
           <div className="flex w-[85%] max-w-sm flex-col gap-2 rounded-xs border border-border-panel bg-background p-3 shadow-lg">
-            <div className="text-sm">确认启用「完全访问」？</div>
+            <div className="text-sm">{t('permissionSelect.confirmFullAccessTitle')}</div>
             <p className="text-xs text-description">
-              启用后，agent 将减少确认步骤，并可直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任当前任务时使用。
+              {t('permissionSelect.confirmFullAccessBody')}
             </p>
             <label className="flex items-start gap-2 text-xs">
               <input
@@ -246,7 +255,7 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
                 checked={acknowledged}
                 onChange={(event) => setAcknowledged(event.target.checked)}
               />
-              <span className="min-w-0">我已了解风险，并愿意继续</span>
+              <span className="min-w-0">{t('permissionSelect.acknowledgeRisk')}</span>
             </label>
             <div className="flex items-center justify-end gap-2">
               <button
@@ -254,7 +263,7 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
                 className="rounded-xs border border-border-panel px-2.5 py-1 text-xs hover:bg-list-hover"
                 onClick={close}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -262,7 +271,7 @@ export function PermissionSelect({ value, onSelect, disabled }: PermissionSelect
                 disabled={!acknowledged}
                 onClick={confirmFullAccess}
               >
-                启用完全访问
+                {t('permissionSelect.enableFullAccess')}
               </button>
             </div>
           </div>

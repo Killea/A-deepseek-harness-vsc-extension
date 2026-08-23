@@ -1,0 +1,19 @@
+{
+  "command.focus.title": "dsh : Ouvrir le chat",
+  "command.focus.from-editor.title": "Ouvrir Deepseek Harness",
+  "command.openInBrowser.title": "dsh : Ouvrir l'interface Web dans le navigateur",
+  "command.newSession.title": "dsh : Nouvelle session",
+  "command.refreshSessions.title": "dsh : Actualiser les sessions",
+  "configuration.title": "DeepSeek Harness",
+  "configuration.dshPath.description": "Chemin explicite vers l'exécutable dsh utilisé par le runtime global géré. Vide : découverte via PATH, préfixe global npm, puis npx --no-install.",
+  "configuration.minDshVersion.description": "Plancher de compatibilité réservé. Les versions sont actuellement enregistrées mais non rejetées.",
+  "configuration.minDshVersion.deprecationMessage": "Temporairement inactif jusqu'à ce que DSH expose une version de compatibilité fiable.",
+  "configuration.externalUrl.description": "URL de base DSH externe. Lorsqu'elle est définie, l'extension se contente de se connecter/déconnecter et ne gère pas ce processus.",
+  "configuration.discoveryPort.description": "Port de bouclage sondé en premier pour une instance DSH existante.",
+  "configuration.managedPort.description": "Port de bouclage fixe utilisé par le runtime DSH géré inter-fenêtres. Un écouteur non-DSH est signalé comme conflit.",
+  "configuration.autoStart.description": "Résoudre et se connecter au runtime DSH global lors de l'ouverture d'une fenêtre d'espace de travail.",
+  "configuration.locale.description": "Langue d'affichage de l'interface de l'extension. Détection automatique de la langue d'affichage de VS Code si vide. Pris en charge : en, zh-cn, zh-tw, ja, de, fr, es.",
+  "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
+  "views.chat.name": "Chat",
+  "views.chat.contextualTitle": "Chat dsh"
+}

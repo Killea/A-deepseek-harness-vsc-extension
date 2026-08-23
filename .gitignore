@@ -18,6 +18,8 @@ node_modules/
 docs/
 dist/
 out/
+# package.nls*.json are build artifacts copied from src/shared/nls/
+/package.nls*.json
 *.vsix
 *.log
 .scratch

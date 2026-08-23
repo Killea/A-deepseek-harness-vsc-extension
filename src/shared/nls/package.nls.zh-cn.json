@@ -1,0 +1,19 @@
+{
+  "command.focus.title": "dsh: 打开聊天",
+  "command.focus.from-editor.title": "打开 Deepseek Harness",
+  "command.openInBrowser.title": "dsh: 在浏览器中打开 WebUI",
+  "command.newSession.title": "dsh: 新建会话",
+  "command.refreshSessions.title": "dsh: 刷新会话",
+  "configuration.title": "DeepSeek Harness",
+  "configuration.dshPath.description": "全局托管运行时使用的 dsh 可执行文件显式路径。留空：依次通过 PATH、npm 全局目录、npx --no-install 发现。",
+  "configuration.minDshVersion.description": "保留的兼容性下限。当前仅记录版本，不拒绝。",
+  "configuration.minDshVersion.deprecationMessage": "暂不生效，直到 DSH 公布可信的兼容性版本。",
+  "configuration.externalUrl.description": "外部 DSH 基础 URL。设置后扩展仅连接/断开，不管理该进程。",
+  "configuration.discoveryPort.description": "优先探测已有 DSH 实例的回环端口。",
+  "configuration.managedPort.description": "跨窗口托管 DSH 运行时使用的固定回环端口。非 DSH 监听器将报告为冲突。",
+  "configuration.autoStart.description": "工作区窗口打开时解析并连接全局 DSH 运行时。",
+  "configuration.locale.description": "扩展界面的显示语言。留空时自动检测 VS Code 显示语言。支持：en、zh-cn、zh-tw、ja、de、fr、es。",
+  "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
+  "views.chat.name": "聊天",
+  "views.chat.contextualTitle": "dsh 聊天"
+}

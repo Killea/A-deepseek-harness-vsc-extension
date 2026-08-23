@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SettingsProviderCreate } from '../../../../src/shared/protocol.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { ModelCatalogEditor } from './ModelCatalogEditor.tsx'
@@ -24,6 +25,7 @@ interface CustomProviderCardProps {
 }
 
 export function CustomProviderCard(props: CustomProviderCardProps) {
+  const { t } = useTranslation()
   const { taken, protocols, revision, wire, readOnly, onClose } = props
   const [route, setRoute] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -73,52 +75,52 @@ export function CustomProviderCard(props: CustomProviderCardProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-sm">自定义 Provider</span>
+      <span className="text-sm">{t('settings.customProviderTitle')}</span>
       <label className="flex flex-col gap-0.5">
-        <span className="text-xs text-description">Route ID</span>
+        <span className="text-xs text-description">{t('settings.routeId')}</span>
         <input
           className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
           type="text"
           value={route}
           placeholder="acme-gateway"
-          aria-label="Route ID"
+          aria-label={t('settings.routeId')}
           disabled={disabled}
           onChange={(event) => { setRoute(event.target.value) }}
         />
       </label>
       {routeInvalid || routeTaken
-        ? <p className="text-xs text-error">{routeInvalid ? 'Route ID 非法' : 'Route ID 已存在'}</p>
-        : <p className="text-xs text-description">小写字母/数字/连字符，不能以数字开头</p>}
+        ? <p className="text-xs text-error">{routeInvalid ? t('settings.routeIdInvalid') : t('settings.routeIdTaken')}</p>
+        : <p className="text-xs text-description">{t('settings.routeIdHint')}</p>}
       <label className="flex flex-col gap-0.5">
-        <span className="text-xs text-description">显示名</span>
+        <span className="text-xs text-description">{t('settings.displayName')}</span>
         <input
           className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
           type="text"
           value={displayName}
-          placeholder={route.length === 0 ? '显示名' : route}
-          aria-label="显示名"
+          placeholder={route.length === 0 ? t('settings.displayName') : route}
+          aria-label={t('settings.displayName')}
           disabled={disabled}
           onChange={(event) => { setDisplayName(event.target.value) }}
         />
       </label>
       <label className="flex flex-col gap-0.5">
-        <span className="text-xs text-description">Base URL</span>
+        <span className="text-xs text-description">{t('settings.baseUrl')}</span>
         <input
           className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
           type="text"
           value={baseURL}
           placeholder="https://gateway.example/v1"
-          aria-label="Base URL"
+          aria-label={t('settings.baseUrl')}
           disabled={disabled}
           onChange={(event) => { setBaseURL(event.target.value) }}
         />
       </label>
       <label className="flex flex-col gap-0.5">
-        <span className="text-xs text-description">协议</span>
+        <span className="text-xs text-description">{t('settings.protocol')}</span>
         <select
           className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
           value={protocol}
-          aria-label="协议"
+          aria-label={t('settings.protocol')}
           disabled={disabled}
           onChange={(event) => { setProtocol(event.target.value) }}
         >
@@ -126,20 +128,20 @@ export function CustomProviderCard(props: CustomProviderCardProps) {
         </select>
       </label>
       <label className="flex flex-col gap-0.5">
-        <span className="text-xs text-description">API Key</span>
+        <span className="text-xs text-description">{t('settings.apiKey')}</span>
         <input
           className="w-full rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
           type="password"
           autoComplete="off"
           value={keyDraft}
-          placeholder="API Key（可留空使用环境认证）"
-          aria-label="API Key"
+          placeholder={t('settings.apiKeyPlaceholderOptional')}
+          aria-label={t('settings.apiKey')}
           disabled={disabled}
           onChange={(event) => { setKeyDraft(event.target.value) }}
         />
       </label>
       {keyFailure !== undefined
-        ? <p className="text-xs text-error">{keyFailure === 'keyBlank' ? 'Key 不能只有空白' : 'Key 含非法字符'}</p>
+        ? <p className="text-xs text-error">{keyFailure === 'keyBlank' ? t('settings.apiKeyBlank') : t('settings.apiKeyInvalidChars')}</p>
         : null}
       <ModelCatalogEditor
         models={models}
@@ -151,13 +153,13 @@ export function CustomProviderCard(props: CustomProviderCardProps) {
       />
       {failure !== undefined ? <p className="text-xs text-error">{failure}</p> : null}
       {modelFailure !== undefined ? (
-        <p className="text-xs text-description">模型 {modelFailure.index + 1} 校验失败</p>
+        <p className="text-xs text-description">{t('settings.modelValidationFailed', { index: modelFailure.index + 1 })}</p>
       ) : null}
       <EditorFooter
         busy={busy}
         submitDisabled={disabled || !ready}
-        submitLabel="创建"
-        submitBusyLabel="创建中…"
+        submitLabel={t('common.create')}
+        submitBusyLabel={t('common.creating')}
         onCancel={() => { onClose(false) }}
         onSubmit={() => { void create() }}
       />

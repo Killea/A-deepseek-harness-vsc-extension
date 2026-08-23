@@ -1,0 +1,19 @@
+{
+  "command.focus.title": "dsh: Chat öffnen",
+  "command.focus.from-editor.title": "Deepseek Harness öffnen",
+  "command.openInBrowser.title": "dsh: WebUI im Browser öffnen",
+  "command.newSession.title": "dsh: Neue Sitzung",
+  "command.refreshSessions.title": "dsh: Sitzungen aktualisieren",
+  "configuration.title": "DeepSeek Harness",
+  "configuration.dshPath.description": "Expliziter Pfad zur dsh-Ausführungsdatei für die global verwaltete Laufzeit. Leer: Ermittlung über PATH, npm-Globalpräfix, dann npx --no-install.",
+  "configuration.minDshVersion.description": "Reservierte Kompatibilitätsuntergrenze. Versionen werden derzeit nur aufgezeichnet, nicht abgelehnt.",
+  "configuration.minDshVersion.deprecationMessage": "Vorübergehend inaktiv, bis DSH eine vertrauenswürdige Kompatibilitätsversion veröffentlicht.",
+  "configuration.externalUrl.description": "Externe DSH-Basis-URL. Wenn gesetzt, verbindet/trennt die Erweiterung nur und verwaltet diesen Prozess nicht.",
+  "configuration.discoveryPort.description": "Loopback-Port, der zuerst auf eine bestehende DSH-Instanz geprüft wird.",
+  "configuration.managedPort.description": "Fester Loopback-Port für die fensterübergreifende verwaltete DSH-Laufzeit. Ein Nicht-DSH-Listener wird als Konflikt gemeldet.",
+  "configuration.autoStart.description": "Beim Öffnen eines Arbeitsbereichsfensters die globale DSH-Laufzeit auflösen und verbinden.",
+  "configuration.locale.description": "Anzeigesprache der Erweiterungs-Oberfläche. Bei leerem Wert wird die VS Code-Anzeigesprache automatisch erkannt. Unterstützt: en, zh-cn, zh-tw, ja, de, fr, es.",
+  "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
+  "views.chat.name": "Chat",
+  "views.chat.contextualTitle": "dsh Chat"
+}

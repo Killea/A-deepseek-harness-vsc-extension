@@ -1,6 +1,7 @@
 /** Composer Agent Preset seat: selectable before the first turn, read-only after it. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { AgentPresetSelectView, SessionSummary } from '../../../src/shared/protocol.ts'
 import {
   IconAgentPresetOutline16,
@@ -26,6 +27,7 @@ export function AgentPresetSelect({
   onSelect,
   disabled,
 }: AgentPresetSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [index, setIndex] = useState(0)
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
@@ -77,7 +79,38 @@ export function AgentPresetSelect({
   const deploymentDefault = value.presets.find((preset) => preset.isDefault)
   const currentId = value.staged ?? session?.agentPreset ?? deploymentDefault?.id ?? ''
   const current = value.presets.find((preset) => preset.id === currentId)
-  const currentLabel = current?.name ?? currentId
+
+  // 系统 preset（trust=system）的 host name 是中文固定文案；
+  // 按 name 映射到 i18n key，使其它语言能正确翻译。
+  // 未知/自定义 preset 回退 host 提供的 name。
+  const SYSTEM_NAME_MAP: Record<string, { nameKey: string; descKey?: string }> = {
+    '极简模式': { nameKey: 'agentPreset.nameMinimal', descKey: 'agentPreset.descMinimal' },
+    '创造模式': { nameKey: 'agentPreset.nameCreative', descKey: 'agentPreset.descCreative' },
+    '标准模式': { nameKey: 'agentPreset.nameStandard', descKey: 'agentPreset.descStandard' },
+    'PTC 模式': { nameKey: 'agentPreset.nameCode', descKey: 'agentPreset.descCode' },
+  }
+  const presetLabel = (preset: { id: string; name?: string; trust?: string }): string => {
+    if (preset.trust === 'system' && preset.name) {
+      const mapping = SYSTEM_NAME_MAP[preset.name]
+      if (mapping) {
+        const translated = t(mapping.nameKey)
+        if (translated !== mapping.nameKey) return translated
+      }
+    }
+    return preset.name ?? preset.id
+  }
+  const presetDescription = (preset: { id: string; name?: string; description?: string; trust?: string }): string | undefined => {
+    if (preset.trust === 'system' && preset.name) {
+      const mapping = SYSTEM_NAME_MAP[preset.name]
+      if (mapping?.descKey) {
+        const translated = t(mapping.descKey)
+        if (translated !== mapping.descKey) return translated
+      }
+    }
+    return preset.description
+  }
+
+  const currentLabel = current ? presetLabel(current) : currentId
   const locked = session?.blank === false
   const boundUnknown = bound && session === undefined
   const hasIdentity = currentId !== ''
@@ -87,7 +120,7 @@ export function AgentPresetSelect({
   const triggerDisabled = value.busy || boundUnknown || (!locked && disabled) || !canOpen
   const title = value.error
     ?? current?.broken
-    ?? (locked ? '会话首次运行后 Agent Preset 已锁定' : current?.description ?? '选择 Agent Preset')
+    ?? (locked ? t('agentPreset.lockedAfterFirstRun') : (current ? presetDescription(current) : undefined) ?? t('agentPreset.selectAgentPreset'))
 
   const choose = (id: string): void => {
     if (locked && id !== currentId) return
@@ -127,7 +160,7 @@ export function AgentPresetSelect({
         type="button"
         className="input-icon-button flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-xs text-description"
         title={title}
-        aria-label={currentLabel || 'Agent Preset'}
+        aria-label={currentLabel || t('agentPreset.selectAgentPreset')}
         aria-haspopup={canOpen ? 'menu' : undefined}
         aria-expanded={canOpen ? open : undefined}
         disabled={triggerDisabled}
@@ -143,7 +176,7 @@ export function AgentPresetSelect({
       >
         <IconAgentPresetOutline16 size={16} />
         <span className="min-w-0 max-w-[140px] truncate">{currentLabel}</span>
-        {locked ? <span aria-hidden className="text-[10px]">锁定</span> : null}
+        {locked ? <span aria-hidden className="text-[10px]">{t('common.locked')}</span> : null}
         {canOpen ? <IconChevronDownOutline14 size={14} /> : null}
       </button>
 
@@ -156,21 +189,22 @@ export function AgentPresetSelect({
         >
           {locked ? (
             <div className="border-b border-border-panel px-2.5 py-2 text-xs text-description">
-              会话首次运行后模式已锁定；其它模式仅供查看。
+              {t('agentPreset.lockedAfterFirstRunMenu')}
             </div>
           ) : null}
           <div className="max-h-[280px] overflow-y-auto py-1">
             {options.map((option, optionIndex) => {
               const selected = option.id === currentId
               const optionLocked = locked && !selected
-              const label = option.name ?? option.id
+              const label = presetLabel(option)
+              const desc = presetDescription(option)
               return (
                 <button
                   key={option.id}
                   type="button"
                   role="menuitem"
                   disabled={optionLocked || (!locked && disabled) || value.busy}
-                  title={optionLocked ? '当前会话的 Agent Preset 已锁定' : option.description ?? label}
+                  title={optionLocked ? t('agentPreset.currentLocked') : desc ?? label}
                   className={`flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left disabled:cursor-not-allowed disabled:opacity-40 ${optionIndex === index ? 'bg-selection text-selection-foreground' : 'hover:bg-list-hover'}`}
                   onMouseEnter={() => setIndex(optionIndex)}
                   onClick={() => choose(option.id)}
@@ -179,15 +213,15 @@ export function AgentPresetSelect({
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span className="truncate text-sm">{label}</span>
                       <span className="shrink-0 rounded-xs border border-border-panel px-1 text-[10px] text-description">
-                        {option.trust === 'system' ? '内置' : '自定义'}
+                        {option.trust === 'system' ? t('common.builtIn') : t('common.custom')}
                       </span>
                       {option.isDefault ? (
-                        <span className="shrink-0 rounded-xs bg-muted px-1 text-[10px] text-description">默认</span>
+                        <span className="shrink-0 rounded-xs bg-muted px-1 text-[10px] text-description">{t('agentPreset.default')}</span>
                       ) : null}
                     </span>
-                    {option.description !== undefined ? (
-                      <span className="mt-0.5 block text-xs text-description" title={option.description}>
-                        {option.description}
+                    {desc !== undefined ? (
+                      <span className="mt-0.5 block text-xs text-description" title={desc}>
+                        {desc}
                       </span>
                     ) : null}
                   </span>

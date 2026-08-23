@@ -1,0 +1,19 @@
+{
+  "command.focus.title": "dsh: チャットを開く",
+  "command.focus.from-editor.title": "Deepseek Harness を開く",
+  "command.openInBrowser.title": "dsh: ブラウザで WebUI を開く",
+  "command.newSession.title": "dsh: 新規セッション",
+  "command.refreshSessions.title": "dsh: セッションを更新",
+  "configuration.title": "DeepSeek Harness",
+  "configuration.dshPath.description": "グローバル管理ランタイムが使用する dsh 実行ファイルの明示パス。空: PATH、npm グローバルプレフィックス、npx --no-install の順で検出。",
+  "configuration.minDshVersion.description": "予約済みの互換性下限。現在はバージョンを記録するのみで拒否しません。",
+  "configuration.minDshVersion.deprecationMessage": "DSH が信頼できる互換性バージョンを公開するまで一時的に無効。",
+  "configuration.externalUrl.description": "外部 DSH ベース URL。設定すると拡張機能は接続/切断のみ行い、プロセスを管理しません。",
+  "configuration.discoveryPort.description": "既存の DSH インスタンスを最初にプローブするループバックポート。",
+  "configuration.managedPort.description": "クロスウィンドウ管理 DSH ランタイムが使用する固定ループバックポート。非 DSH リスナーは競合として報告されます。",
+  "configuration.autoStart.description": "ワークスペースウィンドウを開いたときにグローバル DSH ランタイムを解決して接続します。",
+  "configuration.locale.description": "拡張機能 UI の表示言語。空の場合は VS Code の表示言語を自動検出します。サポート: en、zh-cn、zh-tw、ja、de、fr、es。",
+  "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
+  "views.chat.name": "チャット",
+  "views.chat.contextualTitle": "dsh チャット"
+}

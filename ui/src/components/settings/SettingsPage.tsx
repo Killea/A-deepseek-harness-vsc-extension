@@ -6,20 +6,24 @@
  */
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
-import { statusCopy } from '../../statusCopy.ts'
 import { AboutPage } from './AboutPage.tsx'
 import { GeneralSettings } from './GeneralSettings.tsx'
+import { LanguageSettings } from './LanguageSettings.tsx'
 import { ModelsSettings } from './ModelsSettings.tsx'
 import type { SettingsWire } from './wire.ts'
 
-type Section = 'models' | 'general' | 'about'
+type Section = 'models' | 'general' | 'language' | 'about'
 
 interface SettingsPageProps {
   panel: SettingsPanelView | null
   wire: SettingsWire
   onBack: () => void
   onOpenInBrowser: () => void
+  /** Controlled section state (survives locale-change remount). */
+  section: Section
+  onSectionChange: (section: Section) => void
 }
 
 function ModelIcon() {
@@ -55,8 +59,19 @@ function GeneralIcon() {
   )
 }
 
-export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsPageProps) {
-  const [section, setSection] = useState<Section>('models')
+/** 语言菜单项图标：地球（globe）。 */
+function LanguageIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0">
+      <circle cx="8" cy="8" r="5.75" stroke="currentColor" strokeWidth="1.2" />
+      <ellipse cx="8" cy="8" rx="2.5" ry="5.75" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M2.5 8H13.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function SettingsPage({ panel, wire, onBack, onOpenInBrowser, section, onSectionChange }: SettingsPageProps) {
+  const { t } = useTranslation()
   const [initialized, setInitialized] = useState(false)
 
   // 首次收到面板视图时按就绪态默认选中（之后手动切换不被跳转）。
@@ -64,9 +79,9 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
     if (panel !== null && !initialized) {
       setInitialized(true)
       const ready = panel.status === 'ready' || panel.status === 'reconnecting'
-      setSection(ready ? 'models' : 'about')
+      onSectionChange(ready ? 'models' : 'about')
     }
-  }, [panel, initialized])
+  }, [panel, initialized, onSectionChange])
 
   const ready = panel !== null && (panel.status === 'ready' || panel.status === 'reconnecting')
   const showModels = panel !== null && ready && panel.loadError === undefined
@@ -77,7 +92,7 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
       title={label}
       className={`flex items-center gap-1.5 rounded-xs px-2 py-1.5 text-left text-xs max-[240px]:justify-center max-[240px]:px-0 ${section === id ? 'bg-selection text-selection-foreground' : 'hover:bg-list-hover'
         }`}
-      onClick={() => { setSection(id) }}
+      onClick={() => { onSectionChange(id) }}
     >
       {icon}
       <span className="max-[240px]:hidden">{label}</span>
@@ -91,21 +106,21 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
           <button
             type="button"
             className="input-icon-button flex size-5 items-center justify-center rounded-xs text-icon-foreground"
-            title="返回"
-            aria-label="返回"
+            title={t('common.back')}
+            aria-label={t('common.back')}
             onClick={onBack}
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path d="M10.5 3.5L6 8L10.5 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <span className="text-sm">设置</span>
+          <span className="text-sm">{t('settings.title')}</span>
         </div>
         <button
           type="button"
           className="input-icon-button flex size-5 items-center justify-center rounded-xs text-icon-foreground"
-          title="刷新"
-          aria-label="刷新"
+          title={t('common.refresh')}
+          aria-label={t('common.refresh')}
           onClick={() => { wire.refresh() }}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -117,21 +132,22 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
       <div className="flex min-h-0 flex-1">
         {/* 左侧导航：宽度只够容纳 label（w-fit），窗口过窄（≤240px）时折叠为纯图标 */}
         <nav className="flex w-fit max-[240px]:w-8 flex-none flex-col gap-0.5 border-r border-border-panel p-1.5 max-[240px]:p-1">
-          {navItem('models', <ModelIcon />, '模型')}
-          {navItem('general', <GeneralIcon />, '通用')}
-          {navItem('about', <InfoIcon />, '关于')}
+          {navItem('models', <ModelIcon />, t('settings.models'))}
+          {navItem('general', <GeneralIcon />, t('settings.general'))}
+          {navItem('language', <LanguageIcon />, t('settings.languageTab'))}
+          {navItem('about', <InfoIcon />, t('settings.about'))}
         </nav>
 
         {/* 内容区 */}
         <div className="min-w-0 flex-1 overflow-hidden">
           {section === 'models' ? (
             panel === null ? (
-              <p className="px-3 py-2 text-xs text-description">加载中…</p>
+              <p className="px-3 py-2 text-xs text-description">{t('common.loading')}</p>
             ) : showModels ? (
               <ModelsSettings panel={panel} wire={wire} />
             ) : (
               <div className="px-3 py-2">
-                <p className="text-xs text-description">{statusCopy(panel.status)}</p>
+                <p className="text-xs text-description">{t(`status.${panel.status}`, { defaultValue: panel.status })}</p>
                 {panel.loadError !== undefined ? (
                   <>
                     <p className="mt-1 break-words text-xs text-error">{panel.loadError}</p>
@@ -140,7 +156,7 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
                       className="mt-1 rounded-xs border border-border-panel px-2.5 py-1 text-xs hover:bg-list-hover"
                       onClick={() => { wire.refresh() }}
                     >
-                      重试
+                      {t('common.retry')}
                     </button>
                   </>
                 ) : null}
@@ -148,9 +164,15 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser }: SettingsP
             )
           ) : section === 'general' ? (
             panel === null ? (
-              <p className="px-3 py-2 text-xs text-description">加载中…</p>
+              <p className="px-3 py-2 text-xs text-description">{t('common.loading')}</p>
             ) : (
               <GeneralSettings panel={panel} wire={wire} />
+            )
+          ) : section === 'language' ? (
+            panel === null ? (
+              <p className="px-3 py-2 text-xs text-description">{t('common.loading')}</p>
+            ) : (
+              <LanguageSettings panel={panel} wire={wire} />
             )
           ) : (
             <AboutPage panel={panel} wire={wire} onOpenInBrowser={onOpenInBrowser} />

@@ -1,5 +1,5 @@
 /** dsh 服务状态行（Cline 风格：细条、描述色文字 + 状态圆点）。 */
-import { statusCopy } from '../statusCopy.ts'
+import { useTranslation } from 'react-i18next'
 
 interface StatusBarProps {
   status: string
@@ -16,8 +16,9 @@ const STATUS_DOT: Record<string, string> = {
 }
 
 export function StatusBar({ status, detail }: StatusBarProps) {
+  const { t } = useTranslation()
   const dot = STATUS_DOT[status] ?? 'bg-muted-foreground'
-  const label = statusCopy(status)
+  const label = t(`status.${status}`, { defaultValue: status })
   return (
     <div className="flex flex-none flex-col gap-0.5 px-3.5 py-1.5 text-xs text-description">
       <div className="flex items-center gap-1.5">

@@ -8,24 +8,24 @@
  */
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
-import { statusCopy } from '../../statusCopy.ts'
 import type { SettingsWire } from './wire.ts'
 
-const REPO_URL = 'https://github.com/weinibuliu/deepseek-harness-vsc-extension'
+const REPO_URL = 'https://github.com/Killea/A-deepseek-harness-vsc-extension'
 
-const SOURCE_LABEL: Record<string, string> = {
-  config: '配置',
-  path: 'PATH',
-  'npm-prefix': 'npm 全局',
-  npx: 'npx',
+const SOURCE_LABEL_KEY: Record<string, string> = {
+  config: 'settings.sourceConfig',
+  path: 'settings.sourcePath',
+  'npm-prefix': 'settings.sourceNpmPrefix',
+  npx: 'settings.sourceNpx',
 }
 
-const OWNERSHIP_LABEL: Record<string, string> = {
-  managed: '扩展全局管理',
-  'external-specified': '用户指定实例',
-  'external-discovered': '默认端口实例',
-  'external-managed-port': '约定端口外部实例',
+const OWNERSHIP_LABEL_KEY: Record<string, string> = {
+  managed: 'settings.ownershipManaged',
+  'external-specified': 'settings.ownershipExternalSpecified',
+  'external-discovered': 'settings.ownershipExternalDiscovered',
+  'external-managed-port': 'settings.ownershipExternalManagedPort',
 }
 
 const INSTALL_CMD = 'npm install -g @deepseek-ai/dsh'
@@ -46,6 +46,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const copy = (): void => {
@@ -62,15 +63,15 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
 
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-3 py-2">
-      <h2 className="text-sm">关于</h2>
-      <Row label="插件版本">
+      <h2 className="text-sm">{t('settings.about')}</h2>
+      <Row label={t('settings.extensionVersion')}>
         {panel === null ? (
-          <span className="text-xs text-description">加载中…</span>
+          <span className="text-xs text-description">{t('common.loading')}</span>
         ) : (
           <span className="break-all text-xs">{panel.extensionVersion}</span>
         )}
       </Row>
-      <Row label="源码仓库">
+      <Row label={t('settings.sourceRepo')}>
         <button
           type="button"
           className="w-fit break-all text-left text-xs text-link hover:text-link-hover"
@@ -81,57 +82,57 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
       </Row>
 
       <section className="flex flex-col gap-3 border-t border-border-panel pt-3">
-        <h3 className="text-xs font-medium text-foreground">Deepseek-harness Package</h3>
+        <h3 className="text-xs font-medium text-foreground">{t('settings.dshPackage')}</h3>
 
-        <Row label="DSH 连接">
+        <Row label={t('settings.dshConnection')}>
           {panel === null ? (
-            <span className="text-xs text-description">加载中…</span>
+            <span className="text-xs text-description">{t('common.loading')}</span>
           ) : found && panel.location.found && panel.location.kind === 'launcher' ? (
             <>
               <span className="break-all text-xs" title={panel.location.command}>
                 {panel.location.command}
-                <span className="ml-1 text-description">({SOURCE_LABEL[panel.location.source] ?? panel.location.source})</span>
+                <span className="ml-1 text-description">({SOURCE_LABEL_KEY[panel.location.source] !== undefined ? t(SOURCE_LABEL_KEY[panel.location.source]!) : panel.location.source})</span>
               </span>
-              {panel.location.version ? <span className="text-xs text-description">版本 {panel.location.version}</span> : null}
+              {panel.location.version ? <span className="text-xs text-description">{t('settings.versionLabel', { version: panel.location.version })}</span> : null}
             </>
           ) : found && panel.location.found && panel.location.kind === 'endpoint' ? (
             <>
               <span className="break-all text-xs" title={panel.location.baseUrl}>{panel.location.baseUrl}</span>
               <span className="text-xs text-description">
-                {OWNERSHIP_LABEL[panel.location.ownership] ?? panel.location.ownership}
-                {panel.location.version ? ` · 报告版本 ${panel.location.version}` : ''}
+                {OWNERSHIP_LABEL_KEY[panel.location.ownership] !== undefined ? t(OWNERSHIP_LABEL_KEY[panel.location.ownership]!) : panel.location.ownership}
+                {panel.location.version ? ` · ${t('settings.reportedVersion', { version: panel.location.version })}` : ''}
               </span>
             </>
           ) : (
-            <span className="text-xs text-warning">未连接到 DSH</span>
+            <span className="text-xs text-warning">{t('settings.notConnected')}</span>
           )}
         </Row>
 
-        <Row label="扩展运行时设置">
+        <Row label={t('settings.runtimeSettings')}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-description">配置 dsh</span>
+            <span className="text-xs text-description">{t('settings.configureDsh')}</span>
             <button
               type="button"
               className="flex-none text-xs text-link hover:text-link-hover"
               onClick={() => { wire.openExtensionSettings() }}
             >
-              打开 VS Code 设置
+              {t('settings.openVscodeSettings')}
             </button>
           </div>
         </Row>
 
-        <Row label="settings.yaml">
+        <Row label={t('settings.settingsYaml')}>
           <div className="flex items-center gap-2">
             <span className="break-all text-xs text-description">
               {panel?.settingsYamlPath ?? ''}
-              {panel !== null && panel.hasDocument ? '（已存在）' : '（未创建）'}
+              {panel !== null && panel.hasDocument ? t('settings.settingsYamlExists') : t('settings.settingsYamlMissing')}
             </span>
             <button
               type="button"
               className="flex-none text-xs text-link hover:text-link-hover"
               onClick={() => { wire.openSettingsYaml() }}
             >
-              编辑
+              {t('settings.editSettingsYaml')}
             </button>
           </div>
         </Row>
@@ -142,16 +143,16 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
             className="text-xs text-link hover:text-link-hover"
             onClick={onOpenInBrowser}
           >
-            在浏览器中打开
+            {t('settings.openInBrowser')}
           </button>
         </div>
 
         {/* 未就绪：starting 只显示状态文案；error 显示错误详情 + 重试；stopped 显示安装指引。 */}
         {starting ? (
-          <p className="text-xs text-description">{statusCopy(panel?.status ?? '')}</p>
+          <p className="text-xs text-description">{t(`status.${panel?.status ?? ''}`, { defaultValue: panel?.status ?? '' })}</p>
         ) : error ? (
           <div className="flex flex-col gap-2 rounded-xs border border-border-panel p-2">
-            <p className="text-xs text-error">{statusCopy('error')}</p>
+            <p className="text-xs text-error">{t('status.error')}</p>
             {panel?.statusDetail ? (
               <p className="break-words text-xs text-error">{panel.statusDetail}</p>
             ) : null}
@@ -160,12 +161,12 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
               className="rounded-xs border border-border-panel px-2.5 py-1.5 text-xs hover:bg-list-hover"
               onClick={() => { wire.restartDsh() }}
             >
-              重试
+              {t('common.retry')}
             </button>
           </div>
         ) : !ready ? (
           <div className="flex flex-col gap-2 rounded-xs border border-border-panel p-2">
-            <Row label="安装命令">
+            <Row label={t('settings.installCommand')}>
               <div className="flex items-center gap-2">
                 <code className="min-w-0 flex-1 truncate rounded-xs bg-code-block-background px-2 py-1 text-xs text-code-foreground">{INSTALL_CMD}</code>
                 <button
@@ -173,10 +174,10 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
                   className="flex-none rounded-xs border border-border-panel px-2 py-1 text-xs hover:bg-list-hover"
                   onClick={copy}
                 >
-                  {copied ? '已复制' : '复制'}
+                  {copied ? t('common.copied') : t('common.copy')}
                 </button>
               </div>
-              <span className="text-xs text-description">安装后需在 PATH 中可找到 dsh；或在此手动指定位置。</span>
+              <span className="text-xs text-description">{t('settings.installHint')}</span>
             </Row>
             <div className="flex flex-col gap-1">
               <button
@@ -184,7 +185,7 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
                 className="rounded-xs border border-border-panel px-2.5 py-1.5 text-xs hover:bg-list-hover"
                 onClick={() => { wire.pickDshPath() }}
               >
-                选择 dsh 文件…
+                {t('settings.pickDshFile')}
               </button>
             </div>
           </div>

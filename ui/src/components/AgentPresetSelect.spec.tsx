@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AgentPresetSelectView, SessionSummary } from '../../../src/shared/protocol.ts'
+import '../i18n.ts'
 import { AgentPresetSelect } from './AgentPresetSelect.tsx'
 
 const VALUE: AgentPresetSelectView = {
@@ -43,13 +44,13 @@ describe('AgentPresetSelect', () => {
       />,
     )
 
-    fireEvent.click(view.getByRole('button', { name: '标准模式' }))
+    fireEvent.click(view.getByRole('button', { name: 'Standard' }))
 
-    expect(view.getAllByText('内置')).toHaveLength(2)
-    expect(view.getByText('自定义')).toBeTruthy()
-    expect(view.getByText('默认')).toBeTruthy()
+    expect(view.getAllByText('Built-in')).toHaveLength(2)
+    expect(view.getByText('Custom')).toBeTruthy()
+    expect(view.getByText('Default')).toBeTruthy()
     expect(view.queryByText('坏模式')).toBeNull()
-    fireEvent.click(view.getByRole('menuitem', { name: /PTC 模式/ }))
+    fireEvent.click(view.getByRole('menuitem', { name: /PTC/ }))
     expect(onSelect).toHaveBeenCalledWith('code')
   })
 
@@ -65,7 +66,7 @@ describe('AgentPresetSelect', () => {
       />,
     )
 
-    expect(view.getByRole('button', { name: 'PTC 模式' })).toBeTruthy()
+    expect(view.getByRole('button', { name: 'PTC' })).toBeTruthy()
   })
 
   it('keeps a started session inspectable while disabling every other mode', () => {
@@ -80,10 +81,10 @@ describe('AgentPresetSelect', () => {
       />,
     )
 
-    fireEvent.click(view.getByRole('button', { name: '标准模式' }))
-    expect(view.getByText(/模式已锁定/)).toBeTruthy()
-    expect((view.getByRole('menuitem', { name: /PTC 模式/ }) as HTMLButtonElement).disabled).toBe(true)
-    expect((view.getByRole('menuitem', { name: /标准模式/ }) as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(view.getByRole('button', { name: 'Standard' }))
+    expect(view.getByText(/mode is locked/)).toBeTruthy()
+    expect((view.getByRole('menuitem', { name: /PTC/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((view.getByRole('menuitem', { name: /Standard/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('shows a session preset id even when the selectable roster is empty', () => {

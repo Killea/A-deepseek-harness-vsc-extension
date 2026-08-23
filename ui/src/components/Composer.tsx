@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   IconCheckOutline16,
   IconEyeOffOutline16,
@@ -169,6 +170,7 @@ export function Composer({
   serviceDisabled,
   disabled,
 }: ComposerProps) {
+  const { t } = useTranslation()
   const setText = onTextChange
   const [focused, setFocused] = useState(false)
   const [menu, setMenu] = useState<MenuState>(initialMenuState)
@@ -633,11 +635,11 @@ export function Composer({
         return (
           <>
             {(['files', 'problems'] as const).map((cat, i) => (
-              <MenuRow key={cat} selected={menu.index === i} title={cat === 'files' ? '文件' : '问题'}>
+              <MenuRow key={cat} selected={menu.index === i} title={cat === 'files' ? t('composer.placeholderFiles') : t('composer.placeholderProblems')}>
                 <span className="text-xs text-description">
                   {cat === 'files'
-                    ? `${menu.candidates.files.length} 个文件`
-                    : `${menu.candidates.problems.length} 个问题`}
+                    ? t('composer.filesCount', { count: menu.candidates.files.length })
+                    : t('composer.problemsCount', { count: menu.candidates.problems.length })}
                 </span>
               </MenuRow>
             ))}
@@ -648,15 +650,15 @@ export function Composer({
       if (menu.loading) return <MenuLoading />
       if (menu.failed) return <MenuFailed />
       if (items.length === 0) {
-        return <MenuRow title={menu.atCategory === 'files' ? '没有匹配的文件' : '没有匹配的问题'} selected={false} />
+        return <MenuRow title={menu.atCategory === 'files' ? t('composer.noMatchingFiles') : t('composer.noMatchingProblems')} selected={false} />
       }
       if (menu.atCategory === 'files') {
         return items.map((item, i) => {
           const file = item as { relativePath: string; pinned: boolean; dirty: boolean }
           return (
             <MenuRow key={file.relativePath} selected={menu.index === i} title={file.relativePath}>
-              {file.pinned ? <span className="text-xs text-description">当前文件</span> : null}
-              {file.dirty ? <span className="text-xs text-warning">● 未保存</span> : null}
+              {file.pinned ? <span className="text-xs text-description">{t('composer.currentFile')}</span> : null}
+              {file.dirty ? <span className="text-xs text-warning">{t('composer.unsaved')}</span> : null}
             </MenuRow>
           )
         })
@@ -681,7 +683,7 @@ export function Composer({
       const group = currentModelGroup(menu)
       if (menu.model.loading) return <MenuLoading />
       if (menu.model.failed) return <MenuFailed />
-      if (!group) return <MenuRow title="没有可用的模型" selected={false} />
+      if (!group) return <MenuRow title={t('composer.noModels')} selected={false} />
       return (
         <>
           <MenuRow title={group.name} selected={false} muted />
@@ -695,9 +697,9 @@ export function Composer({
     }
     if (menu.permission) {
       if (menu.permission.loading) return <MenuLoading />
-      if (menu.permission.failed) return <MenuRow title="权限信息不可用" selected={false} />
+      if (menu.permission.failed) return <MenuRow title={t('composer.permissionUnavailable')} selected={false} />
       const options = permissionOptions(menu)
-      if (options.length === 0) return <MenuRow title="没有可用的权限预设" selected={false} />
+      if (options.length === 0) return <MenuRow title={t('composer.noPermissionPresets')} selected={false} />
       return options.map((option, i) => {
         const selected = menu.permissions?.currentValue === option.value
         const label = permissionLabel(option.value, option.name)
@@ -716,11 +718,11 @@ export function Composer({
     const rows = visibleCommandRows(menu)
     if (menu.loading) return <MenuLoading />
     if (menu.failed) return <MenuFailed />
-    if (rows.length === 0) return <MenuRow title="没有匹配的命令或技能" selected={false} />
+    if (rows.length === 0) return <MenuRow title={t('composer.noMatchingCommands')} selected={false} />
     // 命令行描述走中文本地化；技能行显示描述原文，仅用户技能加「仅用户 · 」前缀（对齐 dsh）。
     // 名字完整可见（不截断、过长换行）；描述单行截断，hover 显示全文（原生 title）。
     return rows.map((row, i) => {
-      const description = menuRowDescription(row)
+      const description = menuRowDescription(row, t)
       return (
         <MenuRow key={row.name} selected={menu.index === i} title={`/${row.name}`} wrapTitle>
           <span className="min-w-0 flex-1 truncate text-xs text-description" title={description}>
@@ -751,7 +753,7 @@ export function Composer({
         <div
           ref={highlightRef}
           aria-hidden
-          className={`absolute bottom-2.5 top-2.5 left-3.5 right-3.5 overflow-hidden whitespace-pre-wrap break-words rounded-xs bg-input-background composer-glow ${focused ? 'composer-glow-focused' : ''
+          className={`absolute bottom-2.5 top-2.5 left-3.5 right-3.5 overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-input-background composer-glow ${focused ? 'composer-glow-focused' : ''
             }`}
           style={{
             color: 'transparent',
@@ -784,7 +786,7 @@ export function Composer({
           onCompositionEnd={handleCompositionEnd}
           className="z-1 w-full flex-1 resize-none overflow-x-hidden overflow-y-scroll bg-transparent text-input-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden disabled:opacity-60"
           style={{
-            borderRadius: 2,
+            borderRadius: 8,
             fontFamily: 'var(--vscode-font-family)',
             fontSize: 'var(--text-sm)',
             lineHeight: 'var(--vscode-editor-line-height)',
@@ -799,7 +801,7 @@ export function Composer({
             <button
               type="button"
               className="input-icon-button flex size-6 items-center justify-center rounded-xs text-error"
-              title="停止"
+              title={t('common.stop')}
               onClick={onCancel}
             >
               <IconStopFill16 size={15} />
@@ -808,7 +810,7 @@ export function Composer({
             <button
               type="button"
               className="input-icon-button flex size-6 items-center justify-center rounded-xs text-icon-foreground"
-              title="发送"
+              title={t('common.send')}
               disabled={inputDisabled || serviceDisabled || modelSubmitting || presetSubmitting || text.trim().length === 0}
               onClick={() => send('enter')}
             >
@@ -837,8 +839,8 @@ export function Composer({
               }`}
               title={
                 activeFileEnabled
-                  ? '已启用：该文件将作为 @ 引用随消息发送（点击停用）'
-                  : '已停用：该文件不会作为对话输入（点击启用）'
+                  ? t('composer.activeFileEnabledTitle')
+                  : t('composer.activeFileDisabledTitle')
               }
               aria-pressed={activeFileEnabled}
             >
@@ -850,7 +852,7 @@ export function Composer({
               {activeFile.relativePath}
             </span>
             {activeFile.dirty ? (
-              <span className="shrink-0 text-xs text-warning" title="有未保存的修改">
+              <span className="shrink-0 text-xs text-warning" title={t('composer.activeFileDirtyTitle')}>
                 ●
               </span>
             ) : null}
@@ -935,17 +937,19 @@ function MenuRow({
 }
 
 function MenuLoading() {
-  return <div className="px-2.5 py-1.5 text-xs text-description">加载中…</div>
+  const { t } = useTranslation()
+  return <div className="px-2.5 py-1.5 text-xs text-description">{t('common.loading')}</div>
 }
 
 function MenuFailed() {
-  return <div className="px-2.5 py-1.5 text-xs text-error">候选加载失败</div>
+  const { t } = useTranslation()
+  return <div className="px-2.5 py-1.5 text-xs text-error">{t('composer.candidatesFailed')}</div>
 }
 
 /** / 菜单行描述：命令走中文本地化；技能显示描述原文，仅用户技能加「仅用户 · 」前缀。 */
-function menuRowDescription(row: MenuEntry): string {
+function menuRowDescription(row: MenuEntry, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (row.kind === 'skill') {
-    return row.modelInvocable ? row.description : `仅用户 · ${row.description}`
+    return row.modelInvocable ? row.description : t('composer.skillUserOnly', { description: row.description })
   }
   return commandDescription(row)
 }

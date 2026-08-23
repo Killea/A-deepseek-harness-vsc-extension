@@ -118,7 +118,9 @@ export type ExtensionToWebviewMessage =
       ok: false;
       text: string;
       conflict?: boolean;
-    };
+    }
+  // i18n: 推送当前 locale 代码（hydrate + 配置变更时；webview 据此 changeLanguage）。
+  | { type: "locale"; locale: string };
 
 /** Messages the webview sends to the extension. */
 export type WebviewToExtensionMessage =
@@ -247,6 +249,8 @@ export type WebviewToExtensionMessage =
       behavior: BusyEnterBehavior;
       expectedRevision: number;
     }
+  // 「通用」页：写显示语言（weinibuliu.dsh-vsc.locale 配置项；null = 自动跟随 VS Code）。
+  | { type: "settingsSelectLocale"; id: number; locale: string | null }
   // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 weinibuliu.dsh-vsc.dshPath → 重启服务。
   | { type: "settingsPickDshPath" }
   // M6: 引导页「重试」：error 态重启 dsh 服务（不经文件选择器，沿用现有 launcher）。
@@ -810,6 +814,8 @@ export interface SettingsPanelView {
   permissionDefault?: PermissionDefaultView;
   /** 「通用」页繁忙时 Enter 键行为（ui-conversation namespace；缺席 = 回落 queue）。 */
   busyEnter?: BusyEnterView;
+  /** 「通用」页显示语言（weinibuliu.dsh-vsc.locale；null = 自动跟随 VS Code）。 */
+  locale: string | null;
 }
 
 /** host.describe 视图（dsh 包页：host 运行时事实）。 */

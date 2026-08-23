@@ -1,25 +1,41 @@
-# DeepSeek Harness VSCode Extension
+# DeepSeek Harness VS Code Extension
 
 > [!NOTE]
-> This is a **COMMUNITY** project. There may be some issues, and we are trying to make it better.
->
-> 这是一个**社区**项目，它可能存在一些问题，而我们正在努力让它变得足够好用。
+> This is a **community** project. It may have issues, and we are actively working to make it better.
 
-<!--  -->
+A **Visual Studio Code extension** that brings [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into your editor with a native VS Code experience.
 
-The Project is **Visual Studio Code Extension** provides additional features for DeepSeek Harness.
-
-本项目是一个为 DeepSeek Harness 提供额外能力的 **Visual Studio Code 拓展**。
-
-![Installs](https://vsmarketplacebadges.dev/installs-short/weinibuliu.dsh-vsc.svg) ![GitHub License](https://img.shields.io/github/license/weinibuliu/deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/weinibuliu/deepseek-harness-vsc-extension)
+![Installs](https://vsmarketplacebadges.dev/installs-short/weinibuliu.dsh-vsc.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
 
 ## Features
 
-- VSCode style interface VSCode 风格的界面
-- Native File Picker 原生文件选择器
-- Feeling of current focus 当前焦点感知
-- Problems from editor 编辑器问题
-- Agent Preset selector for blank sessions 空白会话模式选择器
+- **Native VS Code UI** — sidebar chat panel that follows your theme (light/dark/high-contrast)
+- **File picker** — `@`-mention files from your workspace as conversation context
+- **Editor awareness** — automatically attaches the active file and editor problems
+- **Agent Preset selector** — switch between modes (Standard, PTC, Minimal, Creative) for blank sessions
+- **Model & reasoning level selector** — Codex-style single-panel dropdown for quick model and reasoning effort switching
+- **Session statistics tooltip** — hover the context-occupancy ring to see token usage, timing, and context breakdown
+- **Todo strip** — live task tracking displayed above the composer
+- **Pending dialog** — approval/plan-review/question flows with keyboard navigation
+- **Multi-language support** — 7 languages with instant switching (see below)
+
+## Multi-language Support (i18n)
+
+The extension UI is fully internationalized using `i18next` + `react-i18next`. Supported languages:
+
+| Code | Native Name |
+|------|-------------|
+| `en` | English |
+| `zh-cn` | 简体中文 |
+| `zh-tw` | 繁體中文 |
+| `ja` | 日本語 |
+| `de` | Deutsch |
+| `fr` | Français |
+| `es` | Español |
+
+Language can be changed at any time via **Settings → Language** tab. The switch is **instant** — no window reload required. The language tab uses native names and a globe icon so users can always find it regardless of the current display language.
+
+Both the webview UI and the extension host (VS Code commands, configuration descriptions, notifications) are localized. VS Code `package.nls.*.json` files are generated from `src/shared/nls/` during build.
 
 ## Install
 
@@ -29,15 +45,13 @@ The Project is **Visual Studio Code Extension** provides additional features for
 
 ### Download or Build VSIX
 
-[Github Release](https://github.com/weinibuliu/deepseek-harness-vsc-extension/releases)
+[GitHub Releases](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases)
 
-[Github Repo](https://github.com/weinibuliu/deepseek-harness-vsc-extension)
+[GitHub Repo](https://github.com/Killea/A-deepseek-harness-vsc-extension)
 
-## Start
+## Getting Started
 
-Extension will try to find `dsh`. so, you install `dsh`:
-
-本拓展将会尝试寻找可用的 `dsh` 。因此，请自行安装 dsh 。
+The extension automatically discovers `dsh`. Install it first:
 
 ```bash
 npm install -g @deepseek-ai/dsh
@@ -46,38 +60,53 @@ npx @deepseek-ai/dsh
 ```
 
 > [!NOTE]
-> Due to the possibility of breaking changes to DeepSeek Harness, this extension may only run with specific version dsh.
+> Due to possible breaking changes in DeepSeek Harness, this extension may only work with specific versions of dsh.
 >
-> 由于 DeepSeek Harness 有可能发生破坏性变更，本拓展或许仅能与特定版本的 dsh 一起正常运行。
->
-> Test Passed Version: 0.1.0-rc.6
+> Tested version: 0.1.0-rc.6
 
-## TODO
+## Recent Changes
 
-We are trying to make this project better, including following the dsh and adding new features.
+### UI & Design
 
-我们正在努力让该插件足够好用，包括跟进 dsh 自身功能与添加新的功能。
+- **Rounded corners (Codex style)** — all panels, menus, cards, buttons, and tooltips now use 8px border radius for a softer, modern look
+- **Composer input field** — rounded with a blue glow border on focus
+- **Session statistics** — changed from click-to-open modal to hover tooltip (no click required)
+- **Model selector** — redesigned as a Codex-style single-panel dropdown: reasoning levels are always visible at the top, model list expands inline below an HR divider
 
-### Following
+### Internationalization
 
-- [x] Display usage 显示用量
-- [x] Context usage 显示上下文
-- [x] Agent preset Agent 预设 (PTC 模式等)
-- [ ] Fork session fork 会话
-- [ ] Changes list 产物列表
-- [ ] SubAgents management SubAgent 管理
-- [ ] Plugin management 插件管理
-- [ ] i18n 国际化
+- Full i18n for all user-visible strings across webview and host
+- 7 locale bundles (`en`, `zh-cn`, `zh-tw`, `ja`, `de`, `fr`, `es`) as JSONC files in `src/shared/locales/`
+- Instant language switching via `i18n.changeLanguage()` + React `key` remount to bypass memoized components
+- Fixed `Intl.getCanonicalLocales` uppercasing issue (`zh-cn` → `zh-CN`) by enabling `lowerCaseLng: true`
+- Agent Preset names mapped by host-provided Chinese names (e.g. "极简模式" → "Minimal") so they translate correctly in all languages
+- Language selector moved to its own Settings tab with a globe icon and native-language labels
 
-### New
+### Settings
 
-- [ ] Real cost time (use timestamp mark action instead of interface timer) 真实花费时间
+- **Settings page** — four tabs: Models, General, Language, About
+- **Language tab** — independent tab with native-name button list (not a dropdown) so users never get lost after switching
+- **Tab state persistence** — settings tab selection survives language-change remounts
 
-## License
+### Build System
 
-This project is licensed under **MIT LICENSE**.
+- `package.nls.*.json` files moved from root to `src/shared/nls/` (source of truth); build step copies them to root for VS Code
+- Root nls files are gitignored build artifacts
+- esbuild plugin strips JSONC comments for host-side locale bundling
 
-项目以 MIT 协议开源。
+## Roadmap
+
+- [x] Usage display (token, context, timing)
+- [x] Context occupancy breakdown
+- [x] Agent preset selector (Standard, PTC, Minimal, Creative)
+- [x] Multi-language i18n with instant switching
+- [x] Codex-style model/reasoning selector
+- [x] Hover tooltip for session statistics
+- [ ] Session fork
+- [ ] Changes list (artifact diff)
+- [ ] SubAgent management
+- [ ] Plugin management
+- [ ] Real cost time (timestamp-based instead of interface timer)
 
 ## Development
 
@@ -92,6 +121,36 @@ F5
 pnpm package
 ```
 
-## Acknowledge
+### Project Structure
+
+```
+src/
+├── extension.ts              # Extension host entry point
+├── services/                 # Host-side services (i18n, settings, agent-preset, etc.)
+├── shared/
+│   ├── locales/              # JSONC translation bundles (7 languages)
+│   ├── nls/                  # package.nls.*.json source files
+│   └── protocol.ts           # Shared types between host and webview
+├── dsh/                      # DSH wire protocol client
+└── webview/                  # Webview provider
+ui/
+├── src/
+│   ├── App.tsx               # Root webview component
+│   ├── i18n.ts               # i18next initialization
+│   ├── components/           # React components (Composer, ChatArea, SessionList, etc.)
+│   └── markdown/             # Markdown rendering pipeline
+└── icons/                    # SVG icon components
+```
+
+## License
+
+MIT
+
+## Acknowledgements
 
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+- [i18next](https://www.i18next.com/) / [react-i18next](https://react.i18next.com/)
+
+## Fork
+
+This project is a fork of [weinibuliu/deepseek-harness-vsc-extension](https://github.com/weinibuliu/deepseek-harness-vsc-extension).

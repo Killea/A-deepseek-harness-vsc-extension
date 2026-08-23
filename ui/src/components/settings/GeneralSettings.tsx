@@ -8,7 +8,9 @@
  * 能力缺席时各自隐藏；两者都缺席 → 空态而非报错。
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { BusyEnterBehavior, SettingsPanelView } from '../../../../src/shared/protocol.ts'
+
 import { FULL_ACCESS_PRESET, permissionLabel } from '../../permission.ts'
 import type { SettingsWire } from './wire.ts'
 
@@ -18,6 +20,7 @@ interface GeneralSettingsProps {
 }
 
 export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
+  const { t } = useTranslation()
   const [pending, setPending] = useState<string | null>(null)
   const [acknowledged, setAcknowledged] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -34,8 +37,8 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
   if (permission === undefined && busyEnter === undefined) {
     return (
       <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-3 py-2">
-        <h2 className="text-sm">通用</h2>
-        <p className="text-xs text-description">当前 dsh 未提供可配置的通用设置能力。</p>
+        <h2 className="text-sm">{t('settings.general')}</h2>
+        <p className="text-xs text-description">{t('settings.noGeneralCapabilities')}</p>
       </div>
     )
   }
@@ -48,7 +51,7 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
     setFailure(undefined)
     void wire.selectPermissionDefault(target, permission.revision).then((reply) => {
       if (!reply.ok) {
-        setFailure(reply.conflict === true ? '配置已被其它编辑修改，请刷新后重试' : reply.text)
+        setFailure(reply.conflict === true ? t('settings.configConflict') : reply.text)
         return
       }
       setSaved(target)
@@ -84,7 +87,7 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
     setBusyEnterFailure(undefined)
     void wire.selectBusyEnter(target, busyEnter.revision).then((reply) => {
       if (!reply.ok) {
-        setBusyEnterFailure(reply.conflict === true ? '配置已被其它编辑修改，请刷新后重试' : reply.text)
+        setBusyEnterFailure(reply.conflict === true ? t('settings.configConflict') : reply.text)
         return
       }
       setBusyEnterSaved(true)
@@ -95,21 +98,21 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
 
   return (
     <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-3 py-2">
-      <h2 className="text-sm">通用</h2>
-      {readOnly ? <p className="text-xs text-warning">设置只读</p> : null}
+      <h2 className="text-sm">{t('settings.general')}</h2>
+      {readOnly ? <p className="text-xs text-warning">{t('settings.readOnly')}</p> : null}
 
       {permission !== undefined && (
         <div className="flex flex-col gap-1.5 rounded-xs border border-border-panel p-2">
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0">
-              <span className="block text-sm">默认权限模式</span>
-              <span className="block text-xs text-description">选择新会话的默认权限模式</span>
+              <span className="block text-sm">{t('settings.defaultPermissionMode')}</span>
+              <span className="block text-xs text-description">{t('settings.defaultPermissionModeDesc')}</span>
             </span>
             <select
               className="max-w-[180px] flex-none rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
               value={pending ?? permission.currentValue}
               disabled={readOnly || saving}
-              aria-label="默认权限模式"
+              aria-label={t('settings.defaultPermissionMode')}
               onChange={(event) => choose(event.target.value)}
             >
               {permission.options.map((option) => (
@@ -117,8 +120,8 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
               ))}
             </select>
           </div>
-          {saving ? <p className="text-xs text-description">保存中…</p> : null}
-          {saved !== undefined ? <p className="text-xs text-success" role="status">已保存</p> : null}
+          {saving ? <p className="text-xs text-description">{t('common.saving')}</p> : null}
+          {saved !== undefined ? <p className="text-xs text-success" role="status">{t('common.saved')}</p> : null}
           {failure !== undefined ? <p className="text-xs text-error">{failure}</p> : null}
         </div>
       )}
@@ -127,22 +130,22 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
         <div className="flex flex-col gap-1.5 rounded-xs border border-border-panel p-2">
           <div className="flex items-center justify-between gap-2">
             <span className="min-w-0">
-              <span className="block text-sm">繁忙时 Enter 键行为</span>
-              <span className="block text-xs text-description">仅在智能体运行时生效；Cmd/Ctrl+Enter 使用另一行为</span>
+              <span className="block text-sm">{t('settings.busyEnterBehavior')}</span>
+              <span className="block text-xs text-description">{t('settings.busyEnterBehaviorDesc')}</span>
             </span>
             <select
               className="max-w-[180px] flex-none rounded-xs border border-input-border bg-input-background px-2 py-1 text-xs text-input-foreground"
               value={busyEnter.currentValue}
               disabled={readOnly || !busyEnter.writable || busyEnterSaving}
-              aria-label="繁忙时 Enter 键行为"
+              aria-label={t('settings.busyEnterBehavior')}
               onChange={(event) => commitBusyEnter(event.target.value as BusyEnterBehavior)}
             >
-              <option value="queue">排队发送</option>
-              <option value="steer">插话发送</option>
+              <option value="queue">{t('settings.busyEnterQueue')}</option>
+              <option value="steer">{t('settings.busyEnterSteer')}</option>
             </select>
           </div>
-          {busyEnterSaving ? <p className="text-xs text-description">保存中…</p> : null}
-          {busyEnterSaved ? <p className="text-xs text-success" role="status">已保存</p> : null}
+          {busyEnterSaving ? <p className="text-xs text-description">{t('common.saving')}</p> : null}
+          {busyEnterSaved ? <p className="text-xs text-success" role="status">{t('common.saved')}</p> : null}
           {busyEnterFailure !== undefined ? <p className="text-xs text-error">{busyEnterFailure}</p> : null}
         </div>
       )}
@@ -150,9 +153,9 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
       {pending !== null && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">
           <div className="flex w-[85%] max-w-sm flex-col gap-2 rounded-xs border border-border-panel bg-background p-3 shadow-lg">
-            <div className="text-sm">确认启用「完全访问」？</div>
+            <div className="text-sm">{t('settings.confirmFullAccessTitle')}</div>
             <p className="text-xs text-description">
-              启用后，新会话将减少确认步骤，并可直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任后续任务时使用。
+              {t('settings.confirmFullAccessBody')}
             </p>
             <label className="flex items-start gap-2 text-xs">
               <input
@@ -160,7 +163,7 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
                 checked={acknowledged}
                 onChange={(event) => setAcknowledged(event.target.checked)}
               />
-              <span className="min-w-0">我已了解风险，并愿意继续</span>
+              <span className="min-w-0">{t('settings.acknowledgeRisk')}</span>
             </label>
             <div className="flex items-center justify-end gap-2">
               <button
@@ -168,7 +171,7 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
                 className="rounded-xs border border-border-panel px-2.5 py-1 text-xs hover:bg-list-hover"
                 onClick={cancel}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -176,7 +179,7 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
                 disabled={!acknowledged || saving}
                 onClick={() => commit(FULL_ACCESS_PRESET)}
               >
-                启用完全访问
+                {t('settings.enableFullAccess')}
               </button>
             </div>
           </div>

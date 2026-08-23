@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PermissionSelectView } from '../../../src/shared/protocol.ts'
+import '../i18n.ts'
 import { PermissionSelect } from './PermissionSelect.tsx'
 
 const VALUE: PermissionSelectView = {
@@ -45,7 +46,7 @@ describe('PermissionSelect menu placement', () => {
     const root = view.container.firstElementChild as HTMLDivElement
     vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect({}))
 
-    fireEvent.click(view.getByRole('button', { name: '工作区写入' }))
+    fireEvent.click(view.getByRole('button', { name: 'Workspace write' }))
 
     const menu = document.querySelector<HTMLElement>('.w-72')
     expect(menu).not.toBeNull()
@@ -62,9 +63,9 @@ describe('PermissionSelect menu placement', () => {
     const view = render(<PermissionSelect value={VALUE} onSelect={onSelect} disabled={false} />)
     const root = view.container.firstElementChild as HTMLDivElement
     vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect({}))
-    fireEvent.click(view.getByRole('button', { name: '工作区写入' }))
+    fireEvent.click(view.getByRole('button', { name: 'Workspace write' }))
 
-    const option = view.getByRole('menuitem', { name: '只读' })
+    const option = view.getByRole('menuitem', { name: 'Read-only' })
     fireEvent.mouseDown(option)
     fireEvent.click(option)
 

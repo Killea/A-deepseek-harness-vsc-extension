@@ -6,6 +6,7 @@
  * 失败/route 缺席等情形由 readiness 判定为 unavailable，不进入此 gate。
  */
 
+import { useTranslation } from 'react-i18next'
 import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
 import { DshLogo } from '../DshLogo.tsx'
 import { ProviderEditorCard } from './ProviderEditorCard.tsx'
@@ -22,6 +23,7 @@ interface NoProviderGateProps {
 }
 
 export function NoProviderGate({ panel, wire, onBack, onOpenSettings }: NoProviderGateProps) {
+  const { t } = useTranslation()
   const readiness = noProviderReadiness(panel)
   if (readiness.kind !== 'credential-missing') return null
   const row = readiness.row
@@ -31,8 +33,8 @@ export function NoProviderGate({ panel, wire, onBack, onOpenSettings }: NoProvid
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
       <DshLogo size={48} />
       <div className="flex flex-col items-center gap-1.5">
-        <h2 className="text-sm">添加 API Key 开始使用</h2>
-        <p className="text-xs text-description">暂无可用模型提供商。填入 DeepSeek 官方 API Key 即可开始。</p>
+        <h2 className="text-sm">{t('settings.noProviderTitle')}</h2>
+        <p className="text-xs text-description">{t('settings.noProviderBody')}</p>
       </div>
       <div className="w-full max-w-xs text-left">
         <ProviderEditorCard
@@ -45,9 +47,9 @@ export function NoProviderGate({ panel, wire, onBack, onOpenSettings }: NoProvid
           credentialOnly
           credentialRequired
           autoFocusCredential
-          cancelLabel="稍后配置"
-          submitLabel="保存并继续"
-          submitBusyLabel="保存中…"
+          cancelLabel={t('settings.configureLater')}
+          submitLabel={t('settings.saveAndContinue')}
+          submitBusyLabel={t('common.saving')}
           onClose={(changed) => { if (!changed) onBack() }}
         />
       </div>
@@ -56,7 +58,7 @@ export function NoProviderGate({ panel, wire, onBack, onOpenSettings }: NoProvid
         className="rounded-xs border border-border-panel px-2.5 py-1 text-xs hover:bg-list-hover"
         onClick={onOpenSettings}
       >
-        其它模型提供商？
+        {t('settings.otherProviders')}
       </button>
     </div>
   )
