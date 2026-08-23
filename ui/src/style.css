@@ -202,17 +202,14 @@ body:focus-within .scrollable {
   font-style: italic;
 }
 
-/* ---- 聊天输入框蓝色发光描边：细蓝线包裹 + 由内向外渐隐的短光晕 ----
-   光晕贴着蓝线最亮、向外快速淡出（总扩散 ~7px，不拖长）。 */
+/* ---- 聊天输入框边框：未聚焦时中性细线，聚焦时蓝色发光描边 ---- */
 .composer-glow {
-  border: 1px solid rgb(0 127 212 / 80%);
+  border: 1px solid var(--vscode-input-border, transparent);
   border-radius: 8px;
-  box-shadow:
-    0 0 3px 0 rgb(0 127 212 / 40%),
-    0 0 6px 1px rgb(0 127 212 / 20%);
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-/* 聚焦：蓝线变实、光晕略增强，保持同色系不喧宾夺主。 */
+/* 聚焦：蓝线包裹 + 由内向外渐隐的短光晕（总扩散 ~7px，不拖长）。 */
 .composer-glow.composer-glow-focused {
   border-color: rgb(0 127 212 / 100%);
   box-shadow:

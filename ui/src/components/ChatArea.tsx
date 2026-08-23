@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConversationItem, ToolResultView } from '../../../src/shared/protocol.ts'
+import { SPINNER_VERBS } from '../spinner-verbs.ts'
 import { MarkdownText, type MarkdownCodeLabels, type MarkdownFileMentions } from '../markdown/MarkdownText.tsx'
 import {
   IconApiOutline14,
@@ -87,6 +88,20 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
   const [canScrollUp, setCanScrollUp] = useState(false)
   const [canScrollDown, setCanScrollDown] = useState(false)
 
+  // Claude-style rotating spinner verbs while streaming.
+  const [verbIndex, setVerbIndex] = useState(() => Math.floor(Math.random() * SPINNER_VERBS.length))
+  useEffect(() => {
+    if (!streaming) return
+    const timer = setInterval(() => {
+      setVerbIndex((prev) => {
+        let next = Math.floor(Math.random() * SPINNER_VERBS.length)
+        if (next === prev) next = (next + 1) % SPINNER_VERBS.length
+        return next
+      })
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [streaming])
+
   useEffect(() => {
     if (!streaming && !userToggled) {
       setExpanded(false)
@@ -127,7 +142,7 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
               : ''
           }
         >
-          {streaming ? t('chat.thinkingStreaming') : t('chat.thinking')}
+          {streaming ? `${SPINNER_VERBS[verbIndex]}…` : t('chat.thinking')}
         </span>
         {expanded ? (
           <IconChevronDownOutline14 size={12} className="shrink-0 text-description" />
@@ -648,6 +663,20 @@ export function ChatArea({
     if (stick) el.scrollTop = el.scrollHeight
   }, [items])
 
+  // Rotating spinner verb for the empty-state running message.
+  const [emptyVerb, setEmptyVerb] = useState(() => Math.floor(Math.random() * SPINNER_VERBS.length))
+  useEffect(() => {
+    if (!running) return
+    const timer = setInterval(() => {
+      setEmptyVerb((prev) => {
+        let next = Math.floor(Math.random() * SPINNER_VERBS.length)
+        if (next === prev) next = (next + 1) % SPINNER_VERBS.length
+        return next
+      })
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [running])
+
   // 翻页前置结算：仅当列表头部发生变化（prepend 到达）时消耗锚点——
   // 纯流式追加只更新尾部，头部条目引用不变，不会误触锚点。会话切换丢弃
   // 未消费的锚点（避免把上一个会话的锚复位到新会话列表上）。
@@ -705,7 +734,7 @@ export function ChatArea({
           {loadOlderRow}
           <div className="flex flex-1 items-center justify-center">
             <p className="px-6 text-center text-sm text-description">
-              {running ? t('chat.emptyRunning') : t('chat.emptyIdle')}
+              {running ? `${SPINNER_VERBS[emptyVerb]}…` : t('chat.emptyIdle')}
             </p>
           </div>
         </div>

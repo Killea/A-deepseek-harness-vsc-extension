@@ -9,6 +9,7 @@
     "loading": "Cargando…",
     "saving": "Guardando…",
     "saved": "Guardado",
+    "remove": "Quitar",
     "delete": "Eliminar",
     "deleting": "Eliminando…",
     "edit": "Editar",
@@ -71,6 +72,7 @@
 
   "composer": {
     "placeholderFiles": "Archivos",
+    "attachImage": "Adjuntar imagen",
     "placeholderProblems": "Problemas",
     "filesCount": "{{count}} archivos",
     "problemsCount": "{{count}} problemas",
@@ -220,7 +222,7 @@
     "busyEnterQueue": "Encolar envío",
     "busyEnterSteer": "Interrumpir envío",
     "language": "Idioma de visualización",
-    "languageDesc": "Idioma de visualización de la interfaz de la extensión. Recargue la ventana para aplicar.",
+    "languageDesc": "Idioma de visualización de la interfaz de la extensión. Los cambios se aplican al instante.",
     "languageAuto": "Automático (seguir VS Code)",
     "confirmFullAccessTitle": "¿Activar \"Acceso completo\"?",
     "confirmFullAccessBody": "Una vez activado, las nuevas sesiones reducirán los pasos de confirmación y podrán realizar directamente más operaciones, incluyendo operaciones sensibles, modificaciones de archivos o comandos externos. Recomendado solo cuando confías en las tareas posteriores.",
@@ -373,6 +375,6 @@
     "noteAborted": "Interrumpido",
     "noteError": "Error: {{message}}",
     "noteUnknownError": "Error desconocido",
-    "dshNotFound": "dsh no encontrado: PATH y el directorio global de npm no contienen dsh, y `npx --no-install @deepseek-ai/dsh` no está disponible. Instala primero: `npm install -g @deepseek-ai/dsh`, o especifica una ruta en el ajuste weinibuliu.dsh-vsc.dshPath."
+    "dshNotFound": "dsh no encontrado: PATH y el directorio global de npm no contienen dsh, y `npx --no-install @deepseek-ai/dsh` no está disponible. Instala primero: `npm install -g @deepseek-ai/dsh`, o especifica una ruta en el ajuste killea.dsh-vsc.dshPath."
   }
 }

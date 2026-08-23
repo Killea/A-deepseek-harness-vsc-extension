@@ -122,6 +122,16 @@ export type ExtensionToWebviewMessage =
   // i18n: 推送当前 locale 代码（hydrate + 配置变更时；webview 据此 changeLanguage）。
   | { type: "locale"; locale: string };
 
+/** Base64-encoded image attachment accompanying a send message. */
+export interface ImageAttachmentInput {
+  /** MIME type: image/png, image/jpeg, image/webp, image/gif. */
+  mediaType: string;
+  /** Canonical base64 encoding of the image bytes (no data: prefix). */
+  data: string;
+  /** Optional display name. */
+  name?: string;
+}
+
 /** Messages the webview sends to the extension. */
 export type WebviewToExtensionMessage =
   | { type: "ready" }
@@ -140,6 +150,8 @@ export type WebviewToExtensionMessage =
       occupiedBlankSessionIds?: string[];
       // 自动附带：眼睛启用的活动文件绝对路径（扩展侧折叠成 @ 引用后提交）。
       attachments?: string[];
+      // 粘贴的图片附件（base64 编码；扩展侧透传到 session.prompt content 数组）。
+      images?: ImageAttachmentInput[];
     }
   // 所有会话级操作在发起时显式绑定目标，扩展侧不得用当前选中会话重写。
   | { type: "cancel"; sessionId: string }
@@ -172,6 +184,7 @@ export type WebviewToExtensionMessage =
       requestId: number;
       line: string;
       occupiedBlankSessionIds?: string[];
+      images?: ImageAttachmentInput[];
     }
   // M3b: /model 弹出层打开 → session.models。
   | {
@@ -249,9 +262,9 @@ export type WebviewToExtensionMessage =
       behavior: BusyEnterBehavior;
       expectedRevision: number;
     }
-  // 「通用」页：写显示语言（weinibuliu.dsh-vsc.locale 配置项；null = 自动跟随 VS Code）。
+  // 「通用」页：写显示语言（killea.dsh-vsc.locale 配置项；null = 自动跟随 VS Code）。
   | { type: "settingsSelectLocale"; id: number; locale: string | null }
-  // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 weinibuliu.dsh-vsc.dshPath → 重启服务。
+  // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 killea.dsh-vsc.dshPath → 重启服务。
   | { type: "settingsPickDshPath" }
   // M6: 引导页「重试」：error 态重启 dsh 服务（不经文件选择器，沿用现有 launcher）。
   | { type: "settingsRestartDsh" }
@@ -259,7 +272,7 @@ export type WebviewToExtensionMessage =
   | { type: "openSettingsYaml" }
   // M6: 关于页「打开扩展设置」→ VS Code Settings，并过滤到本扩展贡献的设置。
   | { type: "openExtensionSettings" }
-  // M6: 页脚「在 dsh web 中打开」→ 执行扩展侧 weinibuliu.dsh-vsc.openInBrowser 命令。
+  // M6: 页脚「在 dsh web 中打开」→ 执行扩展侧 killea.dsh-vsc.openInBrowser 命令。
   | { type: "openInBrowser" }
   // M6: 关于页「repo 链接」→ 扩展侧在系统浏览器打开指定 URL。
   | { type: "openExternalUrl"; url: string }
@@ -814,7 +827,7 @@ export interface SettingsPanelView {
   permissionDefault?: PermissionDefaultView;
   /** 「通用」页繁忙时 Enter 键行为（ui-conversation namespace；缺席 = 回落 queue）。 */
   busyEnter?: BusyEnterView;
-  /** 「通用」页显示语言（weinibuliu.dsh-vsc.locale；null = 自动跟随 VS Code）。 */
+  /** 「通用」页显示语言（killea.dsh-vsc.locale；null = 自动跟随 VS Code）。 */
   locale: string | null;
 }
 

@@ -18,6 +18,7 @@ import type {
   ConversationSnapshot,
   DiscoveredModelView,
   ExtensionToWebviewMessage,
+  ImageAttachmentInput,
   PendingAnswer,
   PendingItemView,
   PermissionSelectView,
@@ -73,6 +74,7 @@ export default function App() {
   const { t } = useTranslation()
   const [localeVersion, setLocaleVersion] = useState(0)
   const [settingsSection, setSettingsSection] = useState<'models' | 'general' | 'language' | 'about'>('models')
+  const [settingsInitialized, setSettingsInitialized] = useState(false)
   const [serviceStatus, setServiceStatus] = useState<{ status: string; detail?: string }>({ status: 'starting' })
   // 瞬时操作错误通知（RPC/流级失败）：只进状态栏 detail，绝不驱动启动门。
   const [notice, setNotice] = useState<string | null>(null)
@@ -419,6 +421,7 @@ export default function App() {
     text: string,
     gesture: ComposerSubmitGesture,
     attachments: string[] = [],
+    images?: ImageAttachmentInput[],
   ): void => {
     const key = composerKey(sessionId)
     const requestId = ++requestSeq.current
@@ -426,6 +429,7 @@ export default function App() {
     post({
       type: 'send', sessionId, requestId, text, gesture,
       ...(attachments.length > 0 ? { attachments } : {}),
+      ...(images && images.length > 0 ? { images } : {}),
       occupiedBlankSessionIds: occupiedBlankSessionIds(),
     })
   }, [occupiedBlankSessionIds, post])
@@ -469,11 +473,15 @@ export default function App() {
   }, [occupiedBlankSessionIds, post])
 
   // M3b: 执行一条 / 命令（claim 提交或裸命令）。
-  const handleCommandExecute = useCallback((sessionId: string | null, line: string): void => {
+  const handleCommandExecute = useCallback((sessionId: string | null, line: string, images?: ImageAttachmentInput[]): void => {
     const key = composerKey(sessionId)
     const requestId = ++requestSeq.current
     setOperationsBySession((prev) => ({ ...prev, [key]: { requestId, kind: 'command' } }))
-    post({ type: 'commandExecute', sessionId, requestId, line, occupiedBlankSessionIds: occupiedBlankSessionIds() })
+    post({
+      type: 'commandExecute', sessionId, requestId, line,
+      ...(images && images.length > 0 ? { images } : {}),
+      occupiedBlankSessionIds: occupiedBlankSessionIds(),
+    })
   }, [occupiedBlankSessionIds, post])
 
   // M3b: 命令目录未知时（/ 行 Enter）保持草稿并重拉目录（不静默降级）。
@@ -588,6 +596,8 @@ export default function App() {
           onOpenInBrowser={() => post({ type: 'openInBrowser' })}
           section={settingsSection}
           onSectionChange={setSettingsSection}
+          initialized={settingsInitialized}
+          onInitialized={() => setSettingsInitialized(true)}
         />
       </div>
     )
@@ -688,7 +698,7 @@ export default function App() {
               text={drafts[key] ?? ''}
               onTextChange={(text) => setDrafts((prev) => ({ ...prev, [key]: text }))}
               commitSeq={commitSeqBySession[key] ?? 0}
-              onSend={(text, gesture, attachments) => handleSend(sessionId, text, gesture, attachments)}
+              onSend={(text, gesture, attachments, imgs) => handleSend(sessionId, text, gesture, attachments, imgs)}
               onCancel={() => sessionId && handleCancel(sessionId)}
               onAtOpen={() => handleAtOpen(sessionId)}
               onAtResolve={(ref) => handleAtResolve(sessionId, ref)}
@@ -703,7 +713,7 @@ export default function App() {
               commands={commandsBySession[key] ?? null}
               skills={skillsBySession[key] ?? null}
               onCommandOpen={() => handleCommandOpen(sessionId)}
-              onCommandExecute={(line) => handleCommandExecute(sessionId, line)}
+              onCommandExecute={(line, imgs) => handleCommandExecute(sessionId, line, imgs)}
               onCommandRetry={() => handleCommandRetry(sessionId)}
               models={modelsBySession[key] ?? null}
               onModelOpen={() => handleModelOpen(sessionId)}

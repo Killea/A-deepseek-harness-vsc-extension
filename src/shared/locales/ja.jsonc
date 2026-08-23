@@ -9,6 +9,7 @@
     "loading": "読み込み中…",
     "saving": "保存中…",
     "saved": "保存済み",
+    "remove": "削除",
     "delete": "削除",
     "deleting": "削除中…",
     "edit": "編集",
@@ -71,6 +72,7 @@
 
   "composer": {
     "placeholderFiles": "ファイル",
+    "attachImage": "画像を添付",
     "placeholderProblems": "問題",
     "filesCount": "{{count}} ファイル",
     "problemsCount": "{{count}} 件の問題",
@@ -220,7 +222,7 @@
     "busyEnterQueue": "送信をキュー",
     "busyEnterSteer": "送信を割り込み",
     "language": "表示言語",
-    "languageDesc": "拡張機能 UI の表示言語。ウィンドウを再読み込みして適用。",
+    "languageDesc": "拡張機能 UI の表示言語。切り替え後すぐに反映されます。",
     "languageAuto": "自動（VS Code に従う）",
     "confirmFullAccessTitle": "「フルアクセス」を有効にしますか？",
     "confirmFullAccessBody": "有効にすると、新規セッションは確認ステップを減らし、機密操作、ファイル変更、外部コマンドを含むより多くの操作を直接実行できるようになります。以降のタスクを信頼する場合にのみ推奨されます。",
@@ -373,6 +375,6 @@
     "noteAborted": "中止されました",
     "noteError": "エラー：{{message}}",
     "noteUnknownError": "不明なエラー",
-    "dshNotFound": "dsh が見つかりません：PATH と npm グローバルディレクトリに dsh がなく、`npx --no-install @deepseek-ai/dsh` も利用できません。先にインストールしてください：`npm install -g @deepseek-ai/dsh`、または weinibuliu.dsh-vsc.dshPath 設定でパスを指定してください。"
+    "dshNotFound": "dsh が見つかりません：PATH と npm グローバルディレクトリに dsh がなく、`npx --no-install @deepseek-ai/dsh` も利用できません。先にインストールしてください：`npm install -g @deepseek-ai/dsh`、または killea.dsh-vsc.dshPath 設定でパスを指定してください。"
   }
 }

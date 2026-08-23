@@ -9,6 +9,7 @@
     "loading": "Laden…",
     "saving": "Speichern…",
     "saved": "Gespeichert",
+    "remove": "Entfernen",
     "delete": "Löschen",
     "deleting": "Löschen…",
     "edit": "Bearbeiten",
@@ -71,6 +72,7 @@
 
   "composer": {
     "placeholderFiles": "Dateien",
+    "attachImage": "Bild anhängen",
     "placeholderProblems": "Probleme",
     "filesCount": "{{count}} Dateien",
     "problemsCount": "{{count}} Probleme",
@@ -220,7 +222,7 @@
     "busyEnterQueue": "Senden einreihen",
     "busyEnterSteer": "Senden unterbrechen",
     "language": "Anzeigesprache",
-    "languageDesc": "Anzeigesprache der Erweiterungs-Oberfläche. Fenster neu laden zum Anwenden.",
+    "languageDesc": "Anzeigesprache der Erweiterungs-Oberfläche. Änderungen werden sofort angewendet.",
     "languageAuto": "Automatisch (VS Code folgen)",
     "confirmFullAccessTitle": "„Vollzugriff\" aktivieren?",
     "confirmFullAccessBody": "Nach Aktivierung werden neue Sitzungen Bestätigungsschritte reduzieren und direkt mehr Operationen ausführen können, einschließlich sensibler Operationen, Dateiänderungen oder externer Befehle. Nur empfohlen, wenn Sie nachfolgenden Aufgaben vertrauen.",
@@ -373,6 +375,6 @@
     "noteAborted": "Abgebrochen",
     "noteError": "Fehler: {{message}}",
     "noteUnknownError": "Unbekannter Fehler",
-    "dshNotFound": "dsh nicht gefunden: PATH und npm-global-Verzeichnis haben kein dsh, und `npx --no-install @deepseek-ai/dsh` ist nicht verfügbar. Bitte zuerst installieren: `npm install -g @deepseek-ai/dsh`, oder geben Sie einen Pfad in der Einstellung weinibuliu.dsh-vsc.dshPath an."
+    "dshNotFound": "dsh nicht gefunden: PATH und npm-global-Verzeichnis haben kein dsh, und `npx --no-install @deepseek-ai/dsh` ist nicht verfügbar. Bitte zuerst installieren: `npm install -g @deepseek-ai/dsh`, oder geben Sie einen Pfad in der Einstellung killea.dsh-vsc.dshPath an."
   }
 }

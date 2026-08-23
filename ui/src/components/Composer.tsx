@@ -14,6 +14,7 @@ import type {
   AgentPresetSelectView,
   CommandDescriptorView,
   ComposerSubmitGesture,
+  ImageAttachmentInput,
   PermissionSelectView,
   SessionModelsView,
   SessionSummary,
@@ -47,7 +48,7 @@ interface ComposerProps {
   /** Incremented only after the owning service action is accepted. */
   commitSeq: number
   /** 发送：attachments = 眼睛启用的自动附带文件（绝对路径，扩展侧构造 @ 引用）。 */
-  onSend: (text: string, gesture: ComposerSubmitGesture, attachments: string[]) => void
+  onSend: (text: string, gesture: ComposerSubmitGesture, attachments: string[], images?: ImageAttachmentInput[]) => void
   onCancel: () => void
   /** @ 菜单打开 → 扩展侧枚举候选。 */
   onAtOpen: () => void
@@ -69,7 +70,7 @@ interface ComposerProps {
   /** / 菜单技能目录快照（skill.list；null = 未知/加载中；纯附加、不参与 commands 门槛）。 */
   skills: SkillsSnapshot | null
   onCommandOpen: () => void
-  onCommandExecute: (line: string) => void
+  onCommandExecute: (line: string, images?: ImageAttachmentInput[]) => void
   /** 命令目录未知时保持草稿并重拉目录。 */
   onCommandRetry: () => void
   /** /model 弹出层 + 输入框下方席位共享的目录数据。 */
@@ -174,11 +175,14 @@ export function Composer({
   const setText = onTextChange
   const [focused, setFocused] = useState(false)
   const [menu, setMenu] = useState<MenuState>(initialMenuState)
+  /** 粘贴的图片附件（base64 + 缩略图 object URL）。 */
+  const [images, setImages] = useState<Array<ImageAttachmentInput & { thumbUrl: string }>>([])
   /** 命令 claim（`/name ` 前缀 + hint 幽灵；guard 层级切到 claimed）。 */
   const [claim, setClaim] = useState<{ token: string; hint: string } | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const highlightRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const pendingCursorRef = useRef<number | null>(null)
   /** 菜单打开态（同步判断用；menu state 更新是异步的）。 */
   const menuOpenRef = useRef(false)
@@ -229,6 +233,7 @@ export function Composer({
     pendingCursorRef.current = null
     pendingInsertRef.current = null
     if (inputRef.current) inputRef.current.style.height = 'auto'
+    setImages([])
   }
 
   const lastCommitRef = useRef(commitSeq)
@@ -275,13 +280,15 @@ export function Composer({
     if (decision === 'send') {
       // 普通消息：手势透传，扩展侧按 running + busyEnter 解析 queue/steer；
       // 眼睛启用的自动附带文件随消息回传（用户手 @ 的文件已留在输入文本里）。
-      onSend(value, gesture, activeFile !== null && activeFileEnabled ? [activeFile.absolutePath] : [])
+      const imageInputs = images.length > 0 ? images.map(({ thumbUrl: _, ...rest }) => rest) : undefined
+      onSend(value, gesture, activeFile !== null && activeFileEnabled ? [activeFile.absolutePath] : [], imageInputs)
       return
     }
     // 运行锁：/ 命令、/model、/permission 等会话动作在运行期间冻结（不经 busy-enter 路径）。
     if (running) return
     if (decision === 'execute') {
-      onCommandExecute(value)
+      const imageInputs = images.length > 0 ? images.map(({ thumbUrl: _, ...rest }) => rest) : undefined
+      onCommandExecute(value, imageInputs)
     } else if (decision === 'model') {
       // 裸 /model → 打开模型弹出层（draft 保留 `/model`，选中后清空）。
       onModelOpen()
@@ -535,7 +542,10 @@ export function Composer({
         if (running || presetSubmitting) break // 运行/模式写入锁：命令执行冻结
         const span = menu.span ?? { start: 0, end: text.length }
         const line = text.slice(span.start, span.end).trim()
-        if (line) onCommandExecute(line)
+        if (line) {
+          const imageInputs = images.length > 0 ? images.map(({ thumbUrl: _, ...rest }) => rest) : undefined
+          onCommandExecute(line, imageInputs)
+        }
         break
       }
       case 'model-drill':
@@ -574,6 +584,53 @@ export function Composer({
   const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>): void => {
     const el = e.currentTarget
     syncTrigger(el.value, el.selectionStart ?? el.value.length)
+  }
+
+  /** 粘贴图片：从剪贴板提取 image/png|jpeg|webp|gif，转 base64 + 缩略图。 */
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>): void => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    const imageItems: DataTransferItem[] = []
+    for (const item of items) {
+      if (item.type.startsWith('image/')) imageItems.push(item)
+    }
+    if (imageItems.length === 0) return // 纯文本粘贴走默认流程
+    e.preventDefault()
+    for (const item of imageItems) {
+      const file = item.getAsFile()
+      if (!file) continue
+      addImageFiles([file])
+    }
+  }
+
+  /** 移除指定索引的图片。 */
+  const removeImage = (index: number): void => {
+    setImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  /** 从 File 对象添加图片（文件选择器或拖放）。
+   *  缩略图用 data URL（VS Code webview CSP 禁止 blob: URL）。 */
+  const addImageFiles = (files: File[]): void => {
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue
+      const reader = new FileReader()
+      reader.onload = (): void => {
+        const dataUrl = reader.result as string
+        const commaIdx = dataUrl.indexOf(',')
+        if (commaIdx === -1) return
+        const base64 = dataUrl.slice(commaIdx + 1)
+        setImages((prev) => [
+          ...prev,
+          {
+            mediaType: file.type,
+            data: base64,
+            name: file.name || undefined,
+            thumbUrl: dataUrl, // 直接用 data URL 作缩略图（CSP 允许）
+          },
+        ])
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -737,7 +794,7 @@ export function Composer({
     <div className="flex-none">
       {/* M4b: todo 计划条（composer 输入区顶部；对齐 dsh web input dock 位置）。 */}
       <TodoStrip todos={todos} />
-      <div className="relative flex px-3.5 py-2.5">
+      <div className="relative px-3.5 py-2.5">
         {/* 悬浮菜单：锚定在输入盒上方（@/ 触发后呼出）。 */}
         {menu.open && (
           <div
@@ -748,140 +805,187 @@ export function Composer({
             <div className="max-h-[240px] overflow-y-auto py-1">{menuRows()}</div>
           </div>
         )}
-        {/* 高亮层：输入盒的底色与边框都画在这里（对齐 Cline 的 absolute 层）。
-            蓝色细线包裹 + 由内向外渐隐的短光晕（composer-glow）。 */}
-        <div
-          ref={highlightRef}
-          aria-hidden
-          className={`absolute bottom-2.5 top-2.5 left-3.5 right-3.5 overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-input-background composer-glow ${focused ? 'composer-glow-focused' : ''
-            }`}
-          style={{
-            color: 'transparent',
-            fontFamily: 'var(--vscode-font-family)',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--vscode-editor-line-height)',
-            padding: '9px 28px 9px 9px',
-          }}
-        />
-        <textarea
-          ref={inputRef}
-          rows={2}
-          value={text}
-          disabled={inputDisabled}
-          onChange={handleChange}
-          onSelect={handleSelect}
-          onScroll={(e) => {
-            const layer = highlightRef.current
-            if (layer) {
-              layer.scrollTop = e.currentTarget.scrollTop
-              layer.scrollLeft = e.currentTarget.scrollLeft
-            }
-          }}
-          onFocus={() => setFocused(true)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          onCompositionStart={() => {
-            composingRef.current = true
-          }}
-          onCompositionEnd={handleCompositionEnd}
-          className="z-1 w-full flex-1 resize-none overflow-x-hidden overflow-y-scroll bg-transparent text-input-foreground [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden disabled:opacity-60"
-          style={{
-            borderRadius: 8,
-            fontFamily: 'var(--vscode-font-family)',
-            fontSize: 'var(--text-sm)',
-            lineHeight: 'var(--vscode-editor-line-height)',
-            padding: '9px 28px 9px 9px',
-            border: 0,
-            cursor: 'text',
-          }}
-        />
-
-        <div className="absolute bottom-3.5 right-4 z-10">
-          {running || submitting ? (
-            <button
-              type="button"
-              className="input-icon-button flex size-6 items-center justify-center rounded-xs text-error"
-              title={t('common.stop')}
-              onClick={onCancel}
-            >
-              <IconStopFill16 size={15} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="input-icon-button flex size-6 items-center justify-center rounded-xs text-icon-foreground"
-              title={t('common.send')}
-              disabled={inputDisabled || serviceDisabled || modelSubmitting || presetSubmitting || text.trim().length === 0}
-              onClick={() => send('enter')}
-            >
-              <IconSendOutline16 size={15} />
-            </button>
-          )}
-        </div>
-      </div>
-      {/* 自动附带：当前活动编辑器文件条（聊天框正下方）。左侧眼睛 = 是否随消息
-          作为 @ 引用发送；停用态变暗（eye-off）。用户手 @ 的文件仍留在输入框里。 */}
-      {activeFile !== null && (
-        <div className="flex items-center gap-1.5 px-3.5 pb-1">
+        {/* 输入盒容器：textarea + 高亮层 + 内嵌底部工具栏（Codex 风格）。 */}
+        <div className={`relative flex flex-col rounded-lg bg-input-background composer-glow ${focused ? 'composer-glow-focused' : ''}`}>
+          {/* 高亮层：@/ 命令 token 画成透明文字 + 底色圆角。 */}
           <div
-            className={`flex max-w-full items-center gap-1 rounded-xs border px-1.5 py-0.5 ${
-              activeFileEnabled
-                ? 'border-input-border bg-input-background'
-                : 'border-input-border bg-transparent opacity-60'
-            }`}
-            title={activeFile.absolutePath}
-          >
+            ref={highlightRef}
+            aria-hidden
+            className="absolute top-0 left-0 right-0 overflow-hidden whitespace-pre-wrap break-words"
+            style={{
+              color: 'transparent',
+              fontFamily: 'var(--vscode-font-family)',
+              fontSize: 'var(--text-sm)',
+              lineHeight: 'var(--vscode-editor-line-height)',
+              padding: '9px 9px 9px 9px',
+            }}
+          />
+          <textarea
+            ref={inputRef}
+            rows={2}
+            value={text}
+            disabled={inputDisabled}
+            onChange={handleChange}
+            onSelect={handleSelect}
+            onScroll={(e) => {
+              const layer = highlightRef.current
+              if (layer) {
+                layer.scrollTop = e.currentTarget.scrollTop
+                layer.scrollLeft = e.currentTarget.scrollLeft
+              }
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onCompositionStart={() => {
+              composingRef.current = true
+            }}
+            onCompositionEnd={handleCompositionEnd}
+            className="z-1 w-full flex-1 resize-none overflow-x-hidden overflow-y-scroll bg-transparent text-input-foreground outline-none focus:outline-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden disabled:opacity-60"
+            style={{
+              fontFamily: 'var(--vscode-font-family)',
+              fontSize: 'var(--text-sm)',
+              lineHeight: 'var(--vscode-editor-line-height)',
+              padding: '9px 9px 9px 9px',
+              border: 0,
+              cursor: 'text',
+            }}
+          />
+          {/* 粘贴图片预览条（textarea 与工具栏之间）。 */}
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-2 pt-1">
+              {images.map((img, i) => (
+                <div key={i} className="group relative">
+                  <img
+                    src={img.thumbUrl}
+                    alt={img.name ?? `image-${i + 1}`}
+                    className="h-14 w-14 rounded-xs border border-border-panel object-cover"
+                  />
+                  <button
+                    type="button"
+                    className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-background text-description hover:text-error opacity-0 transition-opacity group-hover:opacity-100"
+                    title={t('common.remove')}
+                    onClick={() => removeImage(i)}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 底部工具栏（输入框内）：左侧 = + 图片上传 + 权限席位 + 自动附带文件；
+              右侧 = 模式 + 模型 + UsageChip + 发送/停止圆形按钮。 */}
+          <div className="flex flex-wrap items-center gap-1.5 px-2 pb-1.5">
+            {/* 左侧：图片上传圆形 + 按钮（隐藏 file input） */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = e.target.files
+                if (files) addImageFiles(Array.from(files))
+                e.target.value = '' // 允许重复选同一文件
+              }}
+            />
             <button
               type="button"
-              onClick={() => onActiveFileToggle(!activeFileEnabled)}
-              className={`input-icon-button flex size-4 shrink-0 items-center justify-center rounded-xs ${
-                activeFileEnabled ? 'text-input-foreground' : 'text-description'
-              }`}
-              title={
-                activeFileEnabled
-                  ? t('composer.activeFileEnabledTitle')
-                  : t('composer.activeFileDisabledTitle')
-              }
-              aria-pressed={activeFileEnabled}
+              className="flex size-7 items-center justify-center rounded-full text-description hover:bg-list-hover hover:text-foreground"
+              title={t('composer.attachImage')}
+              disabled={inputDisabled}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {activeFileEnabled ? <IconEyeOutline16 size={14} /> : <IconEyeOffOutline16 size={14} />}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path d="M8 3.5V12.5M3.5 8H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </button>
-            <span
-              className={`truncate text-xs ${activeFileEnabled ? 'text-input-foreground' : 'text-description'}`}
-            >
-              {activeFile.relativePath}
-            </span>
-            {activeFile.dirty ? (
-              <span className="shrink-0 text-xs text-warning" title={t('composer.activeFileDirtyTitle')}>
-                ●
-              </span>
-            ) : null}
+            {/* 权限席位（工作区写入） */}
+            <PermissionSelect
+              value={permissions}
+              onSelect={onPermissionSeatSelect}
+              disabled={disabled || running || submitting || modelSubmitting || presetSubmitting || serviceDisabled}
+            />
+            {/* 自动附带文件条（内嵌，紧凑样式） */}
+            {activeFile !== null && (
+              <div
+                className={`flex max-w-[200px] items-center gap-1 rounded-xs border px-1.5 py-0.5 ${
+                  activeFileEnabled
+                    ? 'border-input-border bg-transparent'
+                    : 'border-input-border bg-transparent opacity-60'
+                }`}
+                title={activeFile.absolutePath}
+              >
+                <button
+                  type="button"
+                  onClick={() => onActiveFileToggle(!activeFileEnabled)}
+                  className={`input-icon-button flex size-4 shrink-0 items-center justify-center rounded-xs ${
+                    activeFileEnabled ? 'text-input-foreground' : 'text-description'
+                  }`}
+                  title={
+                    activeFileEnabled
+                      ? t('composer.activeFileEnabledTitle')
+                      : t('composer.activeFileDisabledTitle')
+                  }
+                  aria-pressed={activeFileEnabled}
+                >
+                  {activeFileEnabled ? <IconEyeOutline16 size={14} /> : <IconEyeOffOutline16 size={14} />}
+                </button>
+                <span
+                  className={`truncate text-xs ${activeFileEnabled ? 'text-input-foreground' : 'text-description'}`}
+                >
+                  {activeFile.relativePath}
+                </span>
+                {activeFile.dirty ? (
+                  <span className="shrink-0 text-xs text-warning" title={t('composer.activeFileDirtyTitle')}>
+                    ●
+                  </span>
+                ) : null}
+              </div>
+            )}
+            {/* 右侧：模式 + 模型 + UsageChip + 发送按钮 */}
+            <div className="ml-auto flex items-center gap-1.5">
+              <UsageChip stats={stats} />
+              <AgentPresetSelect
+                value={agentPresets}
+                session={agentPresetSession}
+                bound={agentPresetBound}
+                onOpen={onAgentPresetOpen}
+                onSelect={onAgentPresetSelect}
+                disabled={disabled || running || submitting || modelSubmitting || serviceDisabled}
+              />
+              <ModelSelect
+                models={models}
+                onOpen={onModelOpen}
+                onSelect={onModelSelect}
+                disabled={disabled || running || submitting || modelSubmitting || presetSubmitting || serviceDisabled}
+              />
+              {running || submitting ? (
+                <button
+                  type="button"
+                  className="flex size-7 items-center justify-center rounded-full bg-error text-background hover:opacity-90"
+                  title={t('common.stop')}
+                  onClick={onCancel}
+                >
+                  <IconStopFill16 size={13} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="flex size-7 items-center justify-center rounded-full bg-button-background text-button-foreground hover:bg-button-hover disabled:opacity-40"
+                  title={t('common.send')}
+                  disabled={inputDisabled || serviceDisabled || modelSubmitting || presetSubmitting || text.trim().length === 0}
+                  onClick={() => send('enter')}
+                >
+                  <IconSendOutline16 size={15} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      )}
-      {/* 输入框下方的席位（右对齐）：模式、权限、模型席位并列。running/未就绪时禁用，
-          routable=false 不锁模型席位（作为恢复入口）。 */}
-      <div className="flex flex-wrap items-center justify-end gap-2 px-3.5 pb-1">
-        <UsageChip stats={stats} />
-        <AgentPresetSelect
-          value={agentPresets}
-          session={agentPresetSession}
-          bound={agentPresetBound}
-          onOpen={onAgentPresetOpen}
-          onSelect={onAgentPresetSelect}
-          disabled={disabled || running || submitting || modelSubmitting || serviceDisabled}
-        />
-        <PermissionSelect
-          value={permissions}
-          onSelect={onPermissionSeatSelect}
-          disabled={disabled || running || submitting || modelSubmitting || presetSubmitting || serviceDisabled}
-        />
-        <ModelSelect
-          models={models}
-          onOpen={onModelOpen}
-          onSelect={onModelSelect}
-          disabled={disabled || running || submitting || modelSubmitting || presetSubmitting || serviceDisabled}
-        />
       </div>
       {/* 命令准入即时反馈（不进对话流）。 */}
       {notices.length > 0 && (

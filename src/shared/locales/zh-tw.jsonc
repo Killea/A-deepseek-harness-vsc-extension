@@ -9,6 +9,7 @@
     "loading": "載入中…",
     "saving": "儲存中…",
     "saved": "已儲存",
+    "remove": "移除",
     "delete": "刪除",
     "deleting": "刪除中…",
     "edit": "編輯",
@@ -71,6 +72,7 @@
 
   "composer": {
     "placeholderFiles": "檔案",
+    "attachImage": "新增圖片",
     "placeholderProblems": "問題",
     "filesCount": "{{count}} 個檔案",
     "problemsCount": "{{count}} 個問題",
@@ -220,7 +222,7 @@
     "busyEnterQueue": "排隊傳送",
     "busyEnterSteer": "中斷傳送",
     "language": "顯示語言",
-    "languageDesc": "擴充功能介面的顯示語言。重新載入視窗後生效。",
+    "languageDesc": "擴充功能介面的顯示語言。切換後即時生效。",
     "languageAuto": "自動（跟隨 VS Code）",
     "confirmFullAccessTitle": "啟用「完整存取」？",
     "confirmFullAccessBody": "啟用後，新工作階段將減少確認步驟，並可直接執行更多操作，包括敏感操作、檔案修改或外部指令。僅在您信任後續任務時建議使用。",
@@ -373,6 +375,6 @@
     "noteAborted": "已中止",
     "noteError": "錯誤：{{message}}",
     "noteUnknownError": "未知錯誤",
-    "dshNotFound": "找不到 dsh：PATH 與 npm 全域目錄中沒有 dsh，且 `npx --no-install @deepseek-ai/dsh` 無法使用。請先安裝：`npm install -g @deepseek-ai/dsh`，或在 weinibuliu.dsh-vsc.dshPath 設定中指定路徑。"
+    "dshNotFound": "找不到 dsh：PATH 與 npm 全域目錄中沒有 dsh，且 `npx --no-install @deepseek-ai/dsh` 無法使用。請先安裝：`npm install -g @deepseek-ai/dsh`，或在 killea.dsh-vsc.dshPath 設定中指定路徑。"
   }
 }

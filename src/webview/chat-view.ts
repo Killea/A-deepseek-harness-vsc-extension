@@ -66,7 +66,7 @@ export interface DshFacts {
 }
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "weinibuliu-dsh-vsc.chat";
+  public static readonly viewType = "killea-dsh-vsc.chat";
 
   private view: vscode.WebviewView | null = null;
   private pending: ExtensionToWebviewMessage[] = [];
@@ -186,7 +186,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   /** 读取 locale 配置原始值（null = 自动跟随 VS Code；用于设置面板显示）。 */
   private currentLocaleCode(): string | null {
     return vscode.workspace
-      .getConfiguration("weinibuliu.dsh-vsc")
+      .getConfiguration("killea.dsh-vsc")
       .get<string | null>("locale") ?? null;
   }
 
@@ -288,6 +288,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           message.requestId,
           message.line,
           message.occupiedBlankSessionIds,
+          message.images,
         );
         break;
       case "modelOpen":
@@ -416,7 +417,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             sessionId,
             message.attachments,
           );
-          const result = await this.sessions.prompt(sessionId, finalText, mode);
+          const result = await this.sessions.prompt(sessionId, finalText, mode, undefined, message.images);
           this.post({
             type: "composerOperation",
             sourceSessionId,
@@ -553,11 +554,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case "openExtensionSettings":
         await vscode.commands.executeCommand(
           "workbench.action.openSettings",
-          "@ext:weinibuliu.dsh-vsc",
+          "@ext:killea.dsh-vsc",
         );
         break;
       case "openInBrowser":
-        void vscode.commands.executeCommand("weinibuliu.dsh-vsc.openInBrowser");
+        void vscode.commands.executeCommand("killea.dsh-vsc.openInBrowser");
         break;
       case "openExternalUrl":
         void vscode.env.openExternal(vscode.Uri.parse(message.url));
@@ -1193,6 +1194,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     requestId: number,
     line: string,
     occupiedBlankSessionIds: readonly string[] = [],
+    images?: readonly { mediaType: string; data: string; name?: string }[],
   ): Promise<void> {
     let sessionId: string | null = sourceSessionId;
     try {
@@ -1200,7 +1202,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         sourceSessionId,
         occupiedBlankSessionIds,
       );
-      const result = await this.commands.execute(sessionId, line);
+      const result = await this.commands.execute(sessionId, line, images ?? []);
       if (result === null) {
         this.post({
           type: "commandNotice",
@@ -1757,13 +1759,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  /** 「通用」页：写显示语言配置项（weinibuliu.dsh-vsc.locale）。 */
+  /** 「通用」页：写显示语言配置项（killea.dsh-vsc.locale）。 */
   private async serveSelectLocale(
     id: number,
     locale: string | null,
   ): Promise<void> {
     try {
-      const config = vscode.workspace.getConfiguration("weinibuliu.dsh-vsc");
+      const config = vscode.workspace.getConfiguration("killea.dsh-vsc");
       await config.update("locale", locale, vscode.ConfigurationTarget.Global);
       // 直接用传入值 resolve locale，避免 config.update 传播延迟导致的竞态。
       const resolved = this.i18n.resolveFromValue(locale);

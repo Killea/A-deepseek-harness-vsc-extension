@@ -182,22 +182,32 @@ export class SessionService {
     this.archivedSessionIds = [...ids];
   }
 
-  /** Send a text prompt to a session (D2 default: plain text only).
+  /** Send a prompt to a session.
    *  @param mode - 'queue' appends after the current turn; 'steer' interrupts it
-   *  (busy-Enter 偏好解析后透传；dsh 对非运行态 steer 尽力退化为下一条唤醒 Queue 轮)。 */
+   *  (busy-Enter 偏好解析后透传；dsh 对非运行态 steer 尽力退化为下一条唤醒 Queue 轮)。
+   *  @param images - optional base64-encoded image attachments; emitted as
+   *  `{ type: "image", mediaType, data, name }` content blocks before the text block. */
   async prompt(
     sessionId: string,
     text: string,
     mode: "queue" | "steer" = "queue",
     signal?: AbortSignal,
+    images?: readonly { mediaType: string; data: string; name?: string }[],
   ): Promise<PromptResult> {
     const client = this.requireClient();
+    const content: Array<{ type: string; text?: string; mediaType?: string; data?: string; name?: string }> = [];
+    if (images) {
+      for (const img of images) {
+        content.push({ type: "image", mediaType: img.mediaType, data: img.data, name: img.name });
+      }
+    }
+    content.push({ type: "text", text });
     return await client.call<PromptResult>(
       "session.prompt",
       {
         sessionId,
         mode,
-        content: [{ type: "text", text }],
+        content,
       },
       signal,
     );

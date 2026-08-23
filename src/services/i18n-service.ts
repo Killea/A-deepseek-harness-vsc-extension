@@ -5,7 +5,7 @@
  * showInputBox / showOpenDialog.
  *
  * The active locale is resolved from (in priority order):
- *   1. The `weinibuliu.dsh-vsc.locale` setting (manual override).
+ *   1. The `killea.dsh-vsc.locale` setting (manual override).
  *   2. `vscode.env.language` (VS Code display language).
  *   3. `DEFAULT_LOCALE` ("en").
  *
@@ -23,7 +23,7 @@ import {
 } from "../shared/locales/index.ts";
 
 /** Configuration section for the extension's settings. */
-const CONFIG_SECTION = "weinibuliu.dsh-vsc";
+const CONFIG_SECTION = "killea.dsh-vsc";
 
 /** Setting key for the manual locale override. */
 const LOCALE_SETTING = "locale";

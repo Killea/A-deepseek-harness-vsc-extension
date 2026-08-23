@@ -16,7 +16,7 @@ function renderComposer(overrides: {
   activeFile?: ActiveFileView | null
   activeFileEnabled?: boolean
   onActiveFileToggle?: (enabled: boolean) => void
-  onSend?: (text: string, gesture: ComposerSubmitGesture, attachments: string[]) => void
+  onSend?: (text: string, gesture: ComposerSubmitGesture, attachments: string[], images?: unknown[]) => void
 } = {}) {
   const onSend = overrides.onSend ?? vi.fn()
   const view = render(
@@ -109,7 +109,7 @@ describe('Composer auto-attach file chip', () => {
 
     fireEvent.click(getByTitle('Send'))
 
-    expect(onSend).toHaveBeenCalledWith('你好', 'enter', ['/repo/src/main.ts'])
+    expect(onSend).toHaveBeenCalledWith('你好', 'enter', ['/repo/src/main.ts'], undefined)
   })
 
   it('sends no attachments when the file is disabled', () => {
@@ -117,7 +117,7 @@ describe('Composer auto-attach file chip', () => {
 
     fireEvent.click(getByTitle('Send'))
 
-    expect(onSend).toHaveBeenCalledWith('你好', 'enter', [])
+    expect(onSend).toHaveBeenCalledWith('你好', 'enter', [], undefined)
   })
 
   it('sends no attachments when there is no active file', () => {
@@ -125,7 +125,7 @@ describe('Composer auto-attach file chip', () => {
 
     fireEvent.click(getByTitle('Send'))
 
-    expect(onSend).toHaveBeenCalledWith('你好', 'enter', [])
+    expect(onSend).toHaveBeenCalledWith('你好', 'enter', [], undefined)
   })
 
   it('keeps the permission seat select separate from the popup select', () => {

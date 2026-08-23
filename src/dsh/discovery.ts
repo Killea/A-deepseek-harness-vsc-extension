@@ -2,7 +2,7 @@
  * dsh 发现 (D9/D11.4): locate the user's installed `dsh` executable and record
  * its version. Compatibility rejection is reserved until DSH exposes a
  * trustworthy running-instance version. Probe order:
- *   1. explicit path from configuration (`weinibuliu.dsh-vsc.dshPath`)
+ *   1. explicit path from configuration (`killea.dsh-vsc.dshPath`)
  *   2. PATH scan (`dsh` / `dsh.cmd` / `dsh.exe` / `dsh.ps1`)
  *   3. npm global prefix bin dir
  *   4. `npx --no-install @deepseek-ai/dsh` (last resort, never installs)
@@ -141,7 +141,7 @@ function fromNpx(): DshLauncher {
  * Discover the dsh launcher. Throws a user-facing Error describing the probe
  * chain when nothing is found. The version is returned as diagnostic data;
  * compatibility rejection is intentionally a TODO.
- * @param options.explicitPath - `weinibuliu.dsh-vsc.dshPath` override, if set.
+ * @param options.explicitPath - `killea.dsh-vsc.dshPath` override, if set.
  */
 export async function discoverDsh(options: {
   explicitPath?: string | null;
@@ -159,7 +159,7 @@ export async function discoverDsh(options: {
     if (launcher.source === "npx") {
       throw new Error(
         "未找到 dsh：PATH、npm 全局目录均无 dsh，且 `npx --no-install @deepseek-ai/dsh` 不可用。" +
-          " 请先安装：`npm install -g @deepseek-ai/dsh`，或在设置 weinibuliu.dsh-vsc.dshPath 中指定路径。",
+          " 请先安装：`npm install -g @deepseek-ai/dsh`，或在设置 killea.dsh-vsc.dshPath 中指定路径。",
       );
     }
     throw new Error(

@@ -5,7 +5,7 @@
  * 顶栏 = 返回 + 标题 + 刷新。首次收到面板视图时按就绪态默认选中（之后手动切换不被跳转）。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
 import { AboutPage } from './AboutPage.tsx'
@@ -24,6 +24,9 @@ interface SettingsPageProps {
   /** Controlled section state (survives locale-change remount). */
   section: Section
   onSectionChange: (section: Section) => void
+  /** Whether the initial section has already been set (survives remount). */
+  initialized: boolean
+  onInitialized: () => void
 }
 
 function ModelIcon() {
@@ -70,18 +73,18 @@ function LanguageIcon() {
   )
 }
 
-export function SettingsPage({ panel, wire, onBack, onOpenInBrowser, section, onSectionChange }: SettingsPageProps) {
+export function SettingsPage({ panel, wire, onBack, onOpenInBrowser, section, onSectionChange, initialized, onInitialized }: SettingsPageProps) {
   const { t } = useTranslation()
-  const [initialized, setInitialized] = useState(false)
 
   // 首次收到面板视图时按就绪态默认选中（之后手动切换不被跳转）。
+  // initialized 由 App 层持有，locale-change 重挂载后不会重复初始化。
   useEffect(() => {
     if (panel !== null && !initialized) {
-      setInitialized(true)
+      onInitialized()
       const ready = panel.status === 'ready' || panel.status === 'reconnecting'
       onSectionChange(ready ? 'models' : 'about')
     }
-  }, [panel, initialized, onSectionChange])
+  }, [panel, initialized, onInitialized, onSectionChange])
 
   const ready = panel !== null && (panel.status === 'ready' || panel.status === 'reconnecting')
   const showModels = panel !== null && ready && panel.loadError === undefined

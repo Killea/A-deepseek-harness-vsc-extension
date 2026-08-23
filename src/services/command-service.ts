@@ -134,16 +134,18 @@ export class CommandService {
     else this.directory.clear();
   }
 
-  /** 执行一条完整 / 命令行（claim 提交或裸命令）；null = 未命中（当普通消息的错误反馈）。 */
+  /** 执行一条完整 / 命令行（claim 提交或裸命令）；null = 未命中（当普通消息的错误反馈）。
+   *  images = 粘贴的图片附件（dsh commands.execute 的必填参数，空数组表示无图片）。 */
   async execute(
     sessionId: string,
     line: string,
+    images: readonly { mediaType: string; data: string; name?: string }[] = [],
   ): Promise<CommandExecutionResult | null> {
     const client = this.requireClient();
     const value = await client.call<RawCommandExecution | undefined>(
       "commands/execute",
       {
-        args: { agentId: sessionId, line },
+        args: { agentId: sessionId, line, images },
       },
     );
     if (!value) return null;

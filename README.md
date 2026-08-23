@@ -5,7 +5,7 @@
 
 A **Visual Studio Code extension** that brings [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into your editor with a native VS Code experience.
 
-![Installs](https://vsmarketplacebadges.dev/installs-short/weinibuliu.dsh-vsc.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
+![Installs](https://vsmarketplacebadges.dev/installs-short/Killea.dsh-vsc.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
 
 ## Features
 
@@ -41,7 +41,7 @@ Both the webview UI and the extension host (VS Code commands, configuration desc
 
 ### Visual Studio Marketplace
 
-[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=weinibuliu.dsh-vsc)
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Killea.dsh-vsc)
 
 ### Download or Build VSIX
 
@@ -151,6 +151,6 @@ MIT
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 - [i18next](https://www.i18next.com/) / [react-i18next](https://react.i18next.com/)
 
-## Fork
+## Credits
 
-This project is a fork of [weinibuliu/deepseek-harness-vsc-extension](https://github.com/weinibuliu/deepseek-harness-vsc-extension).
+This project is a fork of [weinibuliu/deepseek-harness-vsc-extension](https://github.com/weinibuliu/deepseek-harness-vsc-extension), originally created by **weinibuliu**. The fork is maintained by **Killea** with additional features including multi-language i18n, Codex-style UI redesign, image paste support, and more.

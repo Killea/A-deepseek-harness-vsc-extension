@@ -2,8 +2,19 @@
   "name": "dsh-vsc",
   "displayName": "DeepSeek Harness",
   "description": "DeepSeek Harness(dsh) for VS Code",
-  "version": "0.1.23",
-  "publisher": "weinibuliu",
+  "version": "0.1.37",
+  "publisher": "Killea",
+  "author": {
+    "name": "Killea",
+    "url": "https://github.com/Killea"
+  },
+  "contributors": [
+    {
+      "name": "weinibuliu",
+      "url": "https://github.com/weinibuliu",
+      "role": "original author"
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Killea/A-deepseek-harness-vsc-extension"
@@ -32,18 +43,18 @@
     "viewsContainers": {
       "secondarySidebar": [
         {
-          "id": "weinibuliu-dsh-vsc",
+          "id": "killea-dsh-vsc",
           "title": "%viewsContainers.secondarySidebar.title%",
           "icon": "ui/favicon.svg"
         }
       ]
     },
     "views": {
-      "weinibuliu-dsh-vsc": [
+      "killea-dsh-vsc": [
         {
           "icon": "ui/favicon.svg",
           "type": "webview",
-          "id": "weinibuliu-dsh-vsc.chat",
+          "id": "killea-dsh-vsc.chat",
           "name": "%views.chat.name%",
           "contextualTitle": "%views.chat.contextualTitle%"
         }
@@ -52,44 +63,44 @@
     "menus": {
       "editor/title": [
         {
-          "command": "weinibuliu.dsh-vsc.focus.from-editor",
+          "command": "killea.dsh-vsc.focus.from-editor",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
           "when": "false",
-          "command": "weinibuliu.dsh-vsc.focus.from-editor"
+          "command": "killea.dsh-vsc.focus.from-editor"
         }
       ]
     },
     "commands": [
       {
-        "command": "weinibuliu.dsh-vsc.focus",
+        "command": "killea.dsh-vsc.focus",
         "title": "%command.focus.title%"
       },
       {
-        "command": "weinibuliu.dsh-vsc.focus.from-editor",
+        "command": "killea.dsh-vsc.focus.from-editor",
         "title": "%command.focus.from-editor.title%",
         "icon": "ui/favicon.svg"
       },
       {
-        "command": "weinibuliu.dsh-vsc.openInBrowser",
+        "command": "killea.dsh-vsc.openInBrowser",
         "title": "%command.openInBrowser.title%"
       },
       {
-        "command": "weinibuliu.dsh-vsc.newSession",
+        "command": "killea.dsh-vsc.newSession",
         "title": "%command.newSession.title%"
       },
       {
-        "command": "weinibuliu.dsh-vsc.refreshSessions",
+        "command": "killea.dsh-vsc.refreshSessions",
         "title": "%command.refreshSessions.title%"
       }
     ],
     "configuration": {
       "title": "%configuration.title%",
       "properties": {
-        "weinibuliu.dsh-vsc.dshPath": {
+        "killea.dsh-vsc.dshPath": {
           "type": [
             "string",
             "null"
@@ -98,14 +109,14 @@
           "scope": "machine",
           "description": "%configuration.dshPath.description%"
         },
-        "weinibuliu.dsh-vsc.minDshVersion": {
+        "killea.dsh-vsc.minDshVersion": {
           "type": "string",
           "default": "0.1.0-rc.6",
           "scope": "machine",
           "description": "%configuration.minDshVersion.description%",
           "deprecationMessage": "%configuration.minDshVersion.deprecationMessage%"
         },
-        "weinibuliu.dsh-vsc.externalUrl": {
+        "killea.dsh-vsc.externalUrl": {
           "type": [
             "string",
             "null"
@@ -114,7 +125,7 @@
           "scope": "machine",
           "description": "%configuration.externalUrl.description%"
         },
-        "weinibuliu.dsh-vsc.discoveryPort": {
+        "killea.dsh-vsc.discoveryPort": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
@@ -122,7 +133,7 @@
           "scope": "machine",
           "description": "%configuration.discoveryPort.description%"
         },
-        "weinibuliu.dsh-vsc.managedPort": {
+        "killea.dsh-vsc.managedPort": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
@@ -130,13 +141,13 @@
           "scope": "machine",
           "description": "%configuration.managedPort.description%"
         },
-        "weinibuliu.dsh-vsc.autoStart": {
+        "killea.dsh-vsc.autoStart": {
           "type": "boolean",
           "default": true,
           "scope": "machine",
           "description": "%configuration.autoStart.description%"
         },
-        "weinibuliu.dsh-vsc.locale": {
+        "killea.dsh-vsc.locale": {
           "type": [
             "string",
             "null"
@@ -167,7 +178,11 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.webview.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package": "pnpm build && vsce package"
+    "package": "pnpm build && vsce package",
+    "publish": "bash scripts/publish.sh",
+    "publish:vsce": "bash scripts/publish.sh --vsce",
+    "publish:ovsx": "bash scripts/publish.sh --ovsx",
+    "publish:dry-run": "bash scripts/publish.sh --dry-run"
   },
   "devDependencies": {
     "@shikijs/langs": "^4.4.3",

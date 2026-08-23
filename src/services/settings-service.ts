@@ -77,7 +77,7 @@ export interface SettingsServiceOptions {
   /** 取当前 wire 客户端（dsh web 未就绪时为 null）。 */
   wire: () => WireClient | null;
   onLog?: (line: string) => void;
-  /** 读取 weinibuliu.dsh-vsc.locale 配置项（null = 自动跟随 VS Code）。 */
+  /** 读取 killea.dsh-vsc.locale 配置项（null = 自动跟随 VS Code）。 */
   localeReader?: () => string | null;
 }
 
