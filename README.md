@@ -7,7 +7,7 @@
 
 A **Visual Studio Code extension** that brings [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into your editor with a native VS Code experience.
 
-![Installs](https://vsmarketplacebadges.dev/installs-short/Killea.deepseek-gold-harness.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
+![Installs](https://vsmarketplacebadges.dev/installs-short/AgentChatBus.deepseek-gold-harness.svg) ![GitHub License](https://img.shields.io/github/license/Killea/A-deepseek-harness-vsc-extension) ![GitHub commit activity](https://img.shields.io/github/commit-activity/w/Killea/A-deepseek-harness-vsc-extension)
 
 ![DeepSeek Gold Harness — Editor & Agent Preset modes](https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/gold.png)
 
@@ -40,7 +40,7 @@ npm install -g @deepseek-ai/dsh
 npx @deepseek-ai/dsh
 ```
 
-2. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Killea.deepseek-gold-harness).
+2. Install the extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentChatBus.deepseek-gold-harness).
 
 3. Open the **DeepSeek Harness** panel in the secondary sidebar (look for the whale icon), or run **dsh: Open Chat** from the Command Palette (`Ctrl/Cmd+Shift+P`).
 
@@ -101,7 +101,7 @@ All settings are under `killea.deepseek-gold-harness.*` (scope: machine).
 
 ### Visual Studio Marketplace
 
-[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Killea.deepseek-gold-harness)
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentChatBus.deepseek-gold-harness)
 
 ### Download or Build VSIX
 

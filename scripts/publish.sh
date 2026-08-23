@@ -2,8 +2,8 @@
 # Build, auto-bump patch version, package VSIX, and optionally publish.
 #
 # Prerequisites:
-#   - vsce logged in:  vsce login Killea   (only needed for --publish)
-#   - ovsx logged in:  ovsx login Killea   (only needed for --publish --ovsx)
+#   - vsce logged in:  vsce login AgentChatBus   (only needed for --publish)
+#   - ovsx logged in:  ovsx login AgentChatBus   (only needed for --publish --ovsx)
 #
 # Usage:
 #   ./scripts/publish.sh                # bump patch, build, package VSIX (default)
@@ -18,7 +18,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PUBLISHER="Killea"
+PUBLISHER="AgentChatBus"
 EXT_ID="deepseek-gold-harness"
 BUMP="patch"
 DO_BUMP=true
