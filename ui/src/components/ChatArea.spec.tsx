@@ -8,7 +8,7 @@ import { ChatArea } from './ChatArea.tsx'
 const noopFileMentions = { resolve: () => undefined }
 
 function items(...texts: string[]): ConversationItem[] {
-  return texts.map((text) => ({ kind: 'user', text }))
+  return texts.map((text) => ({ kind: 'user', text, time: 0 }))
 }
 
 function renderChatArea(overrides: {

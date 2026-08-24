@@ -17,6 +17,7 @@ interface SessionListProps {
   onSelectSession: (sessionId: string) => void
   onArchiveSession: (sessionId: string) => void
   onRenameSession: (sessionId: string, currentTitle: string | null) => void
+  onForkSession: (sessionId: string) => void
 }
 
 /** 当前打开的「…」菜单：会话 id + 当前标题 + 视口内锚点（fixed 定位，避免被滚动容器裁剪）。 */
@@ -47,6 +48,7 @@ export function SessionList({
   onSelectSession,
   onArchiveSession,
   onRenameSession,
+  onForkSession,
 }: SessionListProps) {
   const { t } = useTranslation()
   const [menu, setMenu] = useState<MenuState | null>(null)
@@ -230,6 +232,26 @@ export function SessionList({
             }}
           >
             {t('sessionList.rename')}
+          </button>
+          <button
+            type="button"
+            disabled={(() => {
+              const activity = activities[menu.sessionId]
+              return activity?.running === true || activity?.pending === true || activity?.archivedActive === true
+            })()}
+            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-list-hover disabled:cursor-not-allowed disabled:opacity-50"
+            title={(() => {
+              const activity = activities[menu.sessionId]
+              return activity?.running === true || activity?.pending === true || activity?.archivedActive === true
+                ? t('sessionList.activeSessionCannotFork')
+                : undefined
+            })()}
+            onClick={() => {
+              closeMenu()
+              onForkSession(menu.sessionId)
+            }}
+          >
+            {t('sessionList.fork')}
           </button>
           <button
             type="button"

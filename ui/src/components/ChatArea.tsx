@@ -36,6 +36,10 @@ interface ChatAreaProps {
   onOpenExternalUrl: (url: string) => void
   /** ADR-0004: 行内文件提及解析器（settled-only）。 */
   fileMentions: MarkdownFileMentions
+  /** 当前 turn 的起始墙钟时间（running 时用于实时计时）。 */
+  turnStartMs?: number | null
+  /** 最近一次已结束 turn 的墙钟耗时（turn 结束后持续显示）。 */
+  lastTurnMs?: number | null
 }
 
 /**
@@ -193,6 +197,9 @@ function AssistantItemView({
       {item.partial ? (
         <span className="ml-0.5 inline-block h-[1em] w-0.5 animate-cursor-blink bg-foreground align-text-bottom" />
       ) : null}
+      {!item.partial && item.time > 0 ? (
+        <div className="mt-0.5 text-[10px] text-description/60">{formatGoalTime(item.time)}</div>
+      ) : null}
     </div>
   )
 }
@@ -238,6 +245,17 @@ function formatGoalTime(time: number): string {
   const d = new Date(time)
   const pad = (n: number): string => String(n).padStart(2, '0')
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/** 工具耗时（wall-clock durationMs）→ 紧凑文本：<1s 显示 ms，<60s 显示 s，否则 m:ss。 */
+function formatDuration(ms: number | undefined): string {
+  if (typeof ms !== 'number' || ms <= 0) return ''
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  const s = ms / 1000
+  if (s < 60) return `${Math.round(s * 10) / 10}s`
+  const m = Math.floor(s / 60)
+  const rem = Math.round(s % 60)
+  return `${m}:${String(rem).padStart(2, '0')}`
 }
 
 /** opaque 兜底：source 字段值渲染（字符串原样，其余 JSON 化）。 */
@@ -578,6 +596,10 @@ function ToolCardView({
             <span className="text-error"> -{item.view.deletions}</span>
           </span>
         ) : null}
+        {item.outcome !== null && item.durationMs !== undefined ? (
+          // 工具耗时徽标（仅在已结算且有 durationMs 时显示）。
+          <span className="shrink-0 font-mono text-xs text-description/70">{formatDuration(item.durationMs)}</span>
+        ) : null}
         {expandable ? (
           expanded ? (
             <IconChevronDownOutline14 size={12} className="ml-auto shrink-0 text-description" />
@@ -644,7 +666,7 @@ function ItemView({
 }
 
 export function ChatArea({
-  items, running, sessionId, hasMore, loadingOlder, loadOlderError, onLoadOlder, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions,
+  items, running, sessionId, hasMore, loadingOlder, loadOlderError, onLoadOlder, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions, turnStartMs, lastTurnMs,
 }: ChatAreaProps) {
   const { t } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -676,6 +698,18 @@ export function ChatArea({
     }, 2000)
     return () => clearInterval(timer)
   }, [running])
+
+  // 实时计时：running 且有 turnStartMs 时每 200ms 重渲染以刷新流逝时间。
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!running || turnStartMs === null || turnStartMs === undefined) return
+    const timer = setInterval(() => setTick((n) => n + 1), 200)
+    return () => clearInterval(timer)
+  }, [running, turnStartMs])
+
+  const liveElapsedMs = running && typeof turnStartMs === 'number' && turnStartMs > 0
+    ? Math.max(0, Date.now() - turnStartMs)
+    : null
 
   // 翻页前置结算：仅当列表头部发生变化（prepend 到达）时消耗锚点——
   // 纯流式追加只更新尾部，头部条目引用不变，不会误触锚点。会话切换丢弃
@@ -734,7 +768,16 @@ export function ChatArea({
           {loadOlderRow}
           <div className="flex flex-1 items-center justify-center">
             <p className="px-6 text-center text-sm text-description">
-              {running ? `${SPINNER_VERBS[emptyVerb]}…` : t('chat.emptyIdle')}
+              {running ? (
+                <span className="inline-flex items-center gap-1.5">
+                  {`${SPINNER_VERBS[emptyVerb]}…`}
+                  {liveElapsedMs !== null ? (
+                    <span className="font-mono text-xs text-description/70">{formatDuration(liveElapsedMs)}</span>
+                  ) : null}
+                </span>
+              ) : (
+                t('chat.emptyIdle')
+              )}
             </p>
           </div>
         </div>
@@ -761,6 +804,14 @@ export function ChatArea({
             <div className="flex items-center gap-1.5 pt-2.5 text-xs text-description">
               <IconLoadingOutline16 size={12} className="shrink-0 animate-spin" />
               {t('chat.replying')}
+              {liveElapsedMs !== null ? (
+                <span className="shrink-0 font-mono text-description/70">{formatDuration(liveElapsedMs)}</span>
+              ) : null}
+            </div>
+          ) : lastTurnMs !== null && lastTurnMs !== undefined && lastTurnMs > 0 ? (
+            // turn 结束后仍显示最近一次耗时（静态，不再 tick）。
+            <div className="flex items-center justify-end pt-2.5 text-xs text-description/60">
+              <span className="font-mono">{formatDuration(lastTurnMs)}</span>
             </div>
           ) : null}
         </div>

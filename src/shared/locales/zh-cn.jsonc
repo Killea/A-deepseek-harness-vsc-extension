@@ -106,8 +106,10 @@
     "showMore": "显示更多（还有 {{count}} 条）",
     "collapse": "收起",
     "rename": "重命名",
+    "fork": "分叉",
     "archive": "归档",
-    "activeSessionCannotArchive": "活动会话不能归档"
+    "activeSessionCannotArchive": "活动会话不能归档",
+    "activeSessionCannotFork": "活动会话不能分叉"
   },
 
   "pending": {
@@ -350,6 +352,7 @@
     "promptInFlight": "该会话已有 prompt 正在提交",
     "commandExecuted": "命令已执行",
     "activeSessionCannotArchive": "活动会话不能归档",
+    "activeSessionCannotFork": "活动会话不能分叉",
     "agentPresetNotSelectable": "Agent Preset \"{{name}}\" 不可选择",
     "cannotConfirmSessionState": "无法确认当前会话状态",
     "agentPresetLockedAfterFirstRun": "会话首次运行后 Agent Preset 已锁定",

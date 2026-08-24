@@ -107,8 +107,10 @@
     "showMore": "Show more ({{count}} more)",
     "collapse": "Collapse",
     "rename": "Rename",
+    "fork": "Fork",
     "archive": "Archive",
-    "activeSessionCannotArchive": "Active sessions cannot be archived"
+    "activeSessionCannotArchive": "Active sessions cannot be archived",
+    "activeSessionCannotFork": "Active sessions cannot be forked"
   },
 
   "pending": {
@@ -351,6 +353,7 @@
     "promptInFlight": "A prompt is already being submitted for this session",
     "commandExecuted": "Command executed",
     "activeSessionCannotArchive": "Active sessions cannot be archived",
+    "activeSessionCannotFork": "Active sessions cannot be forked",
     "agentPresetNotSelectable": "Agent Preset \"{{name}}\" is not selectable",
     "cannotConfirmSessionState": "Cannot confirm current session state",
     "agentPresetLockedAfterFirstRun": "Agent Preset is locked after the session's first run",

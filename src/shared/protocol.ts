@@ -157,6 +157,7 @@ export type WebviewToExtensionMessage =
   | { type: "cancel"; sessionId: string }
   | { type: "archiveSession"; sessionId: string }
   | { type: "renameSession"; sessionId: string; currentTitle: string | null }
+  | { type: "forkSession"; sessionId: string }
   | { type: "refresh" }
   // 历史分页：加载所选会话更早的记录（session.history beforeSeq 向后翻页；
   // 成功经 conversation 快照结算、失败经 loadOlderError 反馈）。
@@ -361,8 +362,8 @@ export interface SessionActivityView {
  * sources and the `tool/call` / `tool/result` pair.
  */
 export type ConversationItem =
-  | { kind: "user"; text: string }
-  | { kind: "assistant"; text: string; reasoning?: string; partial: boolean }
+  | { kind: "user"; text: string; time: number }
+  | { kind: "assistant"; text: string; reasoning?: string; partial: boolean; time: number }
   | { kind: "note"; text: string }
   // M3b: 一次命令生命周期节点（run 创建、done 原位更新结果；done 先到则 name/args 为 null）。
   | {
@@ -397,6 +398,8 @@ export type ConversationItem =
       args: string | null;
       outcome: { kind: "success" | "error"; text?: string } | null;
       time: number;
+      // tool/call → tool/result 的墙钟耗时（event.time 差值；缺席 = 运行中或 result 先到）。
+      durationMs?: number;
       // M5: read/write/edit 卡片摘要（fold 从 wire 派生；缺席 = 非文件工具或数据不可得）。
       summary?: ToolFileSummary;
       // M5: read/write/edit 结果正文视图（fold 解析；缺席 = 无结构化正文，显示 outcome 文本）。
@@ -478,6 +481,10 @@ export interface ConversationSnapshot {
   lastSeq: number;
   /** True when the log holds events older than the loaded window（「加载更早」可用）。 */
   hasMore: boolean;
+  /** 当前 turn 的起始墙钟时间（turn/start 的 event.time）；null = 无活跃 turn。 */
+  turnStartMs?: number | null;
+  /** 最近一次已结束 turn 的墙钟耗时（turn/end.time − turn/start.time）；null = 尚无已结束 turn。 */
+  lastTurnMs?: number | null;
 }
 
 // ---- M3c: 上下文注入节点（非用户 user/message；provenance 与 body 全部 fold 解析）----

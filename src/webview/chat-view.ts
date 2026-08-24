@@ -501,6 +501,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case "renameSession":
         await this.renameSession(message.sessionId, message.currentTitle);
         break;
+      case "forkSession":
+        await this.forkSession(message.sessionId);
+        break;
       // 历史分页：加载所选会话更早的记录（session.history beforeSeq 向后翻页）。
       case "loadOlder":
         await this.serveLoadOlder(message.sessionId);
@@ -918,6 +921,35 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     try {
       await this.sessions.renameSession(sessionId, input.trim());
       await this.refreshSessions();
+    } catch (error) {
+      this.post({ type: "notice", text: String(error) });
+    }
+  }
+
+  /**
+   * 会话分叉：调 session.fork 创建子会话（继承源会话的历史、cwd、模型选择与
+   * 血缘），自动选中新会话并加载其对话流。运行中的会话不允许分叉（host 会
+   * 返回 fork-unavailable，扩展侧提前拦截给出友好提示）。
+   */
+  private async forkSession(sessionId: string): Promise<void> {
+    if (this.isSessionActive(sessionId)) {
+      this.post({
+        type: "commandNotice",
+        sessionId,
+        level: "error",
+        text: this.i18n.t("host.activeSessionCannotFork"),
+      });
+      return;
+    }
+    try {
+      const childId = await this.sessions.forkSession(sessionId);
+      this._selectedSessionId = childId;
+      this.post({ type: "selectedSession", sessionId: childId });
+      await this.loadConversation(childId);
+      this.verifyBaseline(childId);
+      await this.refreshSessions();
+      await this.refreshComposerCatalogs(childId);
+      await this.refreshAgentPresets(childId);
     } catch (error) {
       this.post({ type: "notice", text: String(error) });
     }

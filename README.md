@@ -118,11 +118,11 @@ All settings are under `killea.deepseek-gold-harness.*` (scope: machine).
 - [x] Codex-style model/reasoning selector
 - [x] Hover tooltip for session statistics
 - [x] Image paste from clipboard
-- [ ] Session fork
+- [x] Session fork
+- [x] Real cost time (timestamp-based instead of interface timer)
 - [ ] Changes list (artifact diff)
 - [ ] SubAgent management
 - [ ] Plugin management
-- [ ] Real cost time (timestamp-based instead of interface timer)
 
 ## Development
 

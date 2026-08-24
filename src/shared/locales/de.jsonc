@@ -107,8 +107,10 @@
     "showMore": "Mehr anzeigen ({{count}} weitere)",
     "collapse": "Einklappen",
     "rename": "Umbenennen",
+    "fork": "Verzweigen",
     "archive": "Archivieren",
-    "activeSessionCannotArchive": "Aktive Sitzungen können nicht archiviert werden"
+    "activeSessionCannotArchive": "Aktive Sitzungen können nicht archiviert werden",
+    "activeSessionCannotFork": "Aktive Sitzungen können nicht verzweigt werden"
   },
 
   "pending": {
@@ -351,6 +353,7 @@
     "promptInFlight": "Für diese Sitzung wird bereits ein Prompt gesendet",
     "commandExecuted": "Befehl ausgeführt",
     "activeSessionCannotArchive": "Aktive Sitzungen können nicht archiviert werden",
+    "activeSessionCannotFork": "Aktive Sitzungen können nicht verzweigt werden",
     "agentPresetNotSelectable": "Agent Preset „{{name}}\" ist nicht auswählbar",
     "cannotConfirmSessionState": "Aktueller Sitzungsstatus kann nicht bestätigt werden",
     "agentPresetLockedAfterFirstRun": "Agent Preset ist nach der ersten Ausführung der Sitzung gesperrt",

@@ -177,6 +177,24 @@ export class SessionService {
     return result.title;
   }
 
+  /**
+   * Fork a session: the published child inherits the source's seeded history,
+   * cwd, latest logged ModelSelection, and lineage before joining the source
+   * Workspace. An optional `atSeq` anchor maps to the first turn/end at or
+   * after it; omitted selects the last completed turn. Returns the child id.
+   */
+  async forkSession(
+    sessionId: string,
+    atSeq?: number,
+  ): Promise<string> {
+    const client = this.requireClient();
+    const result = await client.call<{ sessionId: string }>(
+      "session.fork",
+      { sessionId, ...(atSeq === undefined ? {} : { atSeq }) },
+    );
+    return result.sessionId;
+  }
+
   /** Replace the cached archive set from a host frame (archived-sessions-changed). */
   setArchived(ids: readonly string[]): void {
     this.archivedSessionIds = [...ids];

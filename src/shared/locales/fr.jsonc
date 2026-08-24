@@ -107,8 +107,10 @@
     "showMore": "Afficher plus ({{count}} de plus)",
     "collapse": "Réduire",
     "rename": "Renommer",
+    "fork": "Forker",
     "archive": "Archiver",
-    "activeSessionCannotArchive": "Les sessions actives ne peuvent pas être archivées"
+    "activeSessionCannotArchive": "Les sessions actives ne peuvent pas être archivées",
+    "activeSessionCannotFork": "Les sessions actives ne peuvent pas être forkées"
   },
 
   "pending": {
@@ -351,6 +353,7 @@
     "promptInFlight": "Une invite est déjà en cours de soumission pour cette session",
     "commandExecuted": "Commande exécutée",
     "activeSessionCannotArchive": "Les sessions actives ne peuvent pas être archivées",
+    "activeSessionCannotFork": "Les sessions actives ne peuvent pas être forkées",
     "agentPresetNotSelectable": "L'Agent Preset « {{name}} » n'est pas sélectionnable",
     "cannotConfirmSessionState": "Impossible de confirmer l'état de la session actuelle",
     "agentPresetLockedAfterFirstRun": "L'Agent Preset est verrouillé après la première exécution de la session",

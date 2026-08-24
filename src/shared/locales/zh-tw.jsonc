@@ -107,8 +107,10 @@
     "showMore": "顯示更多（還有 {{count}} 個）",
     "collapse": "摺疊",
     "rename": "重新命名",
+    "fork": "分叉",
     "archive": "封存",
-    "activeSessionCannotArchive": "使用中的工作階段無法封存"
+    "activeSessionCannotArchive": "使用中的工作階段無法封存",
+    "activeSessionCannotFork": "使用中的工作階段無法分叉"
   },
 
   "pending": {
@@ -351,6 +353,7 @@
     "promptInFlight": "此工作階段已有提示正在提交中",
     "commandExecuted": "指令已執行",
     "activeSessionCannotArchive": "使用中的工作階段無法封存",
+    "activeSessionCannotFork": "使用中的工作階段無法分叉",
     "agentPresetNotSelectable": "Agent Preset「{{name}}」不可選擇",
     "cannotConfirmSessionState": "無法確認目前工作階段狀態",
     "agentPresetLockedAfterFirstRun": "Agent Preset 在工作階段首次執行後即鎖定",

@@ -409,6 +409,10 @@ export default function App() {
     post({ type: 'renameSession', sessionId, currentTitle })
   }, [post])
 
+  const handleForkSession = useCallback((sessionId: string): void => {
+    post({ type: 'forkSession', sessionId })
+  }, [post])
+
   // 历史分页：请求加载所选会话更早的记录（扩展侧 session.history 向前翻页）。
   const handleLoadOlder = useCallback((sessionId: string): void => {
     setLoadOlderErrors((prev) => omitKey(prev, sessionId))
@@ -646,6 +650,7 @@ export default function App() {
           onSelectSession={handleSelectSession}
           onArchiveSession={handleArchiveSession}
           onRenameSession={handleRenameSession}
+          onForkSession={handleForkSession}
         />
         <ChatArea
           items={selected?.items ?? []}
@@ -659,6 +664,8 @@ export default function App() {
           onOpenFile={handleOpenFile}
           onOpenExternalUrl={handleOpenExternalUrl}
           fileMentions={fileMentions}
+          turnStartMs={selected?.turnStartMs ?? null}
+          lastTurnMs={selected?.lastTurnMs ?? null}
         />
       </div>
       {pendingBlocked ? (

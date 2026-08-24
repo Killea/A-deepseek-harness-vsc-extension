@@ -711,6 +711,10 @@ export class ConversationFold {
   private lastSeq = -1;
   private open: OpenPartial | null = null;
   private revision = 0;
+  /** 当前 turn 的起始墙钟时间（turn/start 的 event.time）。 */
+  private turnStartMs: number | null = null;
+  /** 最近一次已结束 turn 的墙钟耗时（ms）。 */
+  private lastTurnMs: number | null = null;
 
   /** Apply one event; seq must be strictly increasing (replay or live order). */
   apply(event: WireSessionEvent): void {
@@ -729,7 +733,7 @@ export class ConversationFold {
         if (source === null || readString(source, "kind") === "user") {
           // 真实用户消息（source.kind='user'，或 source 缺失时按用户消息处理）。
           const { text } = extractContent(data.content ?? []);
-          this.items.push({ kind: "user", text });
+          this.items.push({ kind: "user", text, time: event.time });
         } else {
           // 上下文注入节点：provenance（角色 + 生产者名原样）+ form 预解析正文。
           const { text } = extractContent(data.content ?? []);
@@ -756,7 +760,7 @@ export class ConversationFold {
           chunk.type === "tool-call-delta"
         )
           break;
-        this.ensureOpen(data.turn, data.step);
+        this.ensureOpen(data.turn, data.step, event.time);
         this.applyChunk(chunk);
         break;
       }
@@ -771,17 +775,23 @@ export class ConversationFold {
           text,
           ...(reasoning === "" ? {} : { reasoning }),
           partial: false,
+          time: event.time,
         });
         this.revision++;
         break;
       }
       case "turn/start":
         this.running = true;
+        this.turnStartMs = event.time;
         this.revision++;
         break;
       case "turn/end": {
         const wasRunning = this.running;
         this.running = false;
+        if (this.turnStartMs !== null) {
+          this.lastTurnMs = Math.max(0, event.time - this.turnStartMs);
+          this.turnStartMs = null;
+        }
         const reason = (event.data as TurnEndData).reason;
         let changed = wasRunning; // the running flip itself is a visible change
         if (reason?.kind === "aborted") {
@@ -935,6 +945,7 @@ export class ConversationFold {
             outcome,
             ...(summary === undefined ? {} : { summary }),
             ...(view === undefined || view === null ? {} : { view }),
+            durationMs: Math.max(0, event.time - current.time),
           };
         } else {
           // result 先于 call 进入窗口（replay 尾页截断）：仍建卡片，name/args 为 null。
@@ -974,6 +985,8 @@ export class ConversationFold {
       items: [...this.items],
       running: this.running,
       lastSeq: this.lastSeq,
+      turnStartMs: this.turnStartMs,
+      lastTurnMs: this.lastTurnMs,
     };
   }
 
@@ -996,11 +1009,11 @@ export class ConversationFold {
     // Otherwise the partial stays (a newer step or a user message began).
   }
 
-  private ensureOpen(turn: number, step: number): void {
+  private ensureOpen(turn: number, step: number, time: number): void {
     if (this.open && this.open.turn === turn && this.open.step === step) return;
     this.closePartial();
     const itemIndex = this.items.length;
-    this.items.push({ kind: "assistant", text: "", partial: true });
+    this.items.push({ kind: "assistant", text: "", partial: true, time });
     this.open = { turn, step, itemIndex, blocks: new Map() };
     this.revision++;
   }
@@ -1045,11 +1058,14 @@ export class ConversationFold {
         return; // usage / finish / tool-call-delta: no visible text change
     }
     const { text, reasoning } = foldBlocks(blocks);
+    const existing = this.items[open.itemIndex];
+    const prevTime = existing?.kind === "assistant" ? existing.time : 0;
     this.items[open.itemIndex] = {
       kind: "assistant",
       text,
       ...(reasoning === "" ? {} : { reasoning }),
       partial: true,
+      time: prevTime,
     };
     this.revision++;
   }

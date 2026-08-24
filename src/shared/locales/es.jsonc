@@ -107,8 +107,10 @@
     "showMore": "Mostrar más ({{count}} más)",
     "collapse": "Contraer",
     "rename": "Renombrar",
+    "fork": "Bifurcar",
     "archive": "Archivar",
-    "activeSessionCannotArchive": "Las sesiones activas no se pueden archivar"
+    "activeSessionCannotArchive": "Las sesiones activas no se pueden archivar",
+    "activeSessionCannotFork": "Las sesiones activas no se pueden bifurcar"
   },
 
   "pending": {
@@ -351,6 +353,7 @@
     "promptInFlight": "Ya se está enviando una indicación para esta sesión",
     "commandExecuted": "Comando ejecutado",
     "activeSessionCannotArchive": "Las sesiones activas no se pueden archivar",
+    "activeSessionCannotFork": "Las sesiones activas no se pueden bifurcar",
     "agentPresetNotSelectable": "El Agent Preset \"{{name}}\" no es seleccionable",
     "cannotConfirmSessionState": "No se puede confirmar el estado actual de la sesión",
     "agentPresetLockedAfterFirstRun": "El Agent Preset está bloqueado después de la primera ejecución de la sesión",

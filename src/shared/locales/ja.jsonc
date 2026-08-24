@@ -107,8 +107,10 @@
     "showMore": "さらに表示（あと {{count}} 件）",
     "collapse": "折りたたむ",
     "rename": "名前変更",
+    "fork": "フォーク",
     "archive": "アーカイブ",
-    "activeSessionCannotArchive": "アクティブなセッションはアーカイブできません"
+    "activeSessionCannotArchive": "アクティブなセッションはアーカイブできません",
+    "activeSessionCannotFork": "アクティブなセッションはフォークできません"
   },
 
   "pending": {
@@ -351,6 +353,7 @@
     "promptInFlight": "このセッションでは既にプロンプトが送信中です",
     "commandExecuted": "コマンドが実行されました",
     "activeSessionCannotArchive": "アクティブなセッションはアーカイブできません",
+    "activeSessionCannotFork": "アクティブなセッションはフォークできません",
     "agentPresetNotSelectable": "Agent Preset「{{name}}」は選択できません",
     "cannotConfirmSessionState": "現在のセッション状態を確認できません",
     "agentPresetLockedAfterFirstRun": "Agent Preset はセッションの初回実行後にロックされます",
