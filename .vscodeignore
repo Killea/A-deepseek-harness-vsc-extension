@@ -18,6 +18,7 @@ node_modules
 .claude
 .codex
 .idea
+.playwright-mcp
 
 CONTEXT.md
 AGENTS.md
