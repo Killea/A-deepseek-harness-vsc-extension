@@ -12,6 +12,7 @@
   "configuration.discoveryPort.description": "Loopback port probed first for an existing DSH instance.",
   "configuration.managedPort.description": "Fixed loopback port used by the cross-window managed DSH runtime. A non-DSH listener is reported as a conflict.",
   "configuration.autoStart.description": "Resolve and connect to the global DSH runtime when a workspace window opens.",
+  "configuration.showDropZone.description": "Show the file drop zone view in the sidebar. Drag files from Explorer to add them as @ references.",
   "configuration.locale.description": "Display language for the extension UI. Auto-detects VS Code's display language when empty. Supported: en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",

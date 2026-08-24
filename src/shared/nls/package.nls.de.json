@@ -12,6 +12,7 @@
   "configuration.discoveryPort.description": "Loopback-Port, der zuerst auf eine bestehende DSH-Instanz geprüft wird.",
   "configuration.managedPort.description": "Fester Loopback-Port für die fensterübergreifende verwaltete DSH-Laufzeit. Ein Nicht-DSH-Listener wird als Konflikt gemeldet.",
   "configuration.autoStart.description": "Beim Öffnen eines Arbeitsbereichsfensters die globale DSH-Laufzeit auflösen und verbinden.",
+  "configuration.showDropZone.description": "Datei-Ablagezone in der Seitenleiste anzeigen. Dateien aus dem Explorer ziehen, um sie als @-Referenzen hinzuzufügen."
   "configuration.locale.description": "Anzeigesprache der Erweiterungs-Oberfläche. Bei leerem Wert wird die VS Code-Anzeigesprache automatisch erkannt. Unterstützt: en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",

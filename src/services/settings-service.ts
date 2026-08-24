@@ -79,6 +79,8 @@ export interface SettingsServiceOptions {
   onLog?: (line: string) => void;
   /** 读取 killea.deepseek-gold-harness.locale 配置项（null = 自动跟随 VS Code）。 */
   localeReader?: () => string | null;
+  /** 读取 killea.deepseek-gold-harness.showDropZone 配置项。 */
+  showDropZoneReader?: () => boolean;
 }
 
 // ---- serialized schemastery envelope walker (minimal; no schemastery dep) ----
@@ -283,11 +285,13 @@ export class SettingsService {
   private readonly wire: () => WireClient | null;
   private readonly onLog: (line: string) => void;
   private readonly localeReader: () => string | null;
+  private readonly showDropZoneReader: () => boolean;
 
   constructor(options: SettingsServiceOptions) {
     this.wire = options.wire;
     this.onLog = options.onLog ?? (() => undefined);
     this.localeReader = options.localeReader ?? (() => null);
+    this.showDropZoneReader = options.showDropZoneReader ?? (() => false);
   }
 
   private requireClient(): WireClient {
@@ -456,6 +460,7 @@ export class SettingsService {
       ...(busyEnter === undefined ? {} : { busyEnter }),
       ...(host === undefined ? {} : { host }),
       locale: this.localeReader(),
+      showDropZone: this.showDropZoneReader(),
     };
   }
 

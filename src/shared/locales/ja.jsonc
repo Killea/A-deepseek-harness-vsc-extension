@@ -224,6 +224,8 @@
     "busyEnterBehaviorDesc": "エージェント実行中のみ有効。Cmd/Ctrl+Enter は逆の動作を使用します",
     "busyEnterQueue": "送信をキュー",
     "busyEnterSteer": "送信を割り込み",
+    "showDropZone": "ドロップゾーンを表示",
+    "showDropZoneDesc": "サイドバーにファイルドロップゾーンを表示します。エクスプローラーからファイルをドラッグして @ 参照として追加できます。",
     "language": "表示言語",
     "languageDesc": "拡張機能 UI の表示言語。切り替え後すぐに反映されます。",
     "languageAuto": "自動（VS Code に従う）",

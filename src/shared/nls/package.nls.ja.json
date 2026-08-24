@@ -12,6 +12,7 @@
   "configuration.discoveryPort.description": "既存の DSH インスタンスを最初にプローブするループバックポート。",
   "configuration.managedPort.description": "クロスウィンドウ管理 DSH ランタイムが使用する固定ループバックポート。非 DSH リスナーは競合として報告されます。",
   "configuration.autoStart.description": "ワークスペースウィンドウを開いたときにグローバル DSH ランタイムを解決して接続します。",
+  "configuration.showDropZone.description": "サイドバーにファイルドロップゾーンを表示します。エクスプローラーからファイルをドラッグして @ 参照として追加できます。"
   "configuration.locale.description": "拡張機能 UI の表示言語。空の場合は VS Code の表示言語を自動検出します。サポート: en、zh-cn、zh-tw、ja、de、fr、es。",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "チャット",

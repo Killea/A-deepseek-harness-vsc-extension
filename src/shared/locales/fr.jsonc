@@ -224,6 +224,8 @@
     "busyEnterBehaviorDesc": "Prend effet uniquement lorsque l'agent est en cours d'exécution ; Cmd/Ctrl+Entrée utilise le comportement opposé",
     "busyEnterQueue": "Mettre en file d'attente",
     "busyEnterSteer": "Interrompre l'envoi",
+    "showDropZone": "Afficher la zone de dépôt",
+    "showDropZoneDesc": "Afficher la zone de dépôt de fichiers dans la barre latérale. Glissez des fichiers depuis l'Explorateur pour les ajouter comme références @.",
     "language": "Langue d'affichage",
     "languageDesc": "Langue d'affichage de l'interface de l'extension. Les changements s'appliquent instantanément.",
     "languageAuto": "Automatique (suivre VS Code)",

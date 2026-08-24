@@ -2,7 +2,7 @@
   "name": "deepseek-gold-harness",
   "displayName": "DeepSeek Gold Harness",
   "description": "DeepSeek Gold Harness — a VS Code extension for the DeepSeek Harness (dsh) agent runtime",
-  "version": "0.1.73",
+  "version": "0.1.76",
   "publisher": "AgentChatBus",
   "author": {
     "name": "Killea",
@@ -61,7 +61,8 @@
         {
           "icon": "ui/favicon.svg",
           "id": "killea-deepseek-gold-harness.dropZone",
-          "name": "%views.dropZone.name%"
+          "name": "%views.dropZone.name%",
+          "when": "config.killea.deepseek-gold-harness.showDropZone"
         }
       ]
     },
@@ -151,6 +152,12 @@
           "default": true,
           "scope": "machine",
           "description": "%configuration.autoStart.description%"
+        },
+        "killea.deepseek-gold-harness.showDropZone": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "%configuration.showDropZone.description%"
         },
         "killea.deepseek-gold-harness.locale": {
           "type": [

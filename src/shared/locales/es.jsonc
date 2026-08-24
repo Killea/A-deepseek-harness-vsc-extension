@@ -224,6 +224,8 @@
     "busyEnterBehaviorDesc": "Solo surte efecto mientras el agente está en ejecución; Cmd/Ctrl+Entrar usa el comportamiento opuesto",
     "busyEnterQueue": "Encolar envío",
     "busyEnterSteer": "Interrumpir envío",
+    "showDropZone": "Mostrar zona de arrastre",
+    "showDropZoneDesc": "Mostrar la zona de arrastre de archivos en la barra lateral. Arrastra archivos desde el Explorador para añadirlos como referencias @.",
     "language": "Idioma de visualización",
     "languageDesc": "Idioma de visualización de la interfaz de la extensión. Los cambios se aplican al instante.",
     "languageAuto": "Automático (seguir VS Code)",

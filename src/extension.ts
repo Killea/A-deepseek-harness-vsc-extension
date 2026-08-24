@@ -95,6 +95,10 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.workspace
         .getConfiguration("killea.deepseek-gold-harness")
         .get<string | null>("locale") ?? null,
+    showDropZoneReader: () =>
+      vscode.workspace
+        .getConfiguration("killea.deepseek-gold-harness")
+        .get<boolean>("showDropZone", false),
   });
 
   // i18n: 宿主侧翻译服务（与 webview 共享同一 JSONC 资源；locale 由设置或 vscode.env.language 决定）。
@@ -357,6 +361,9 @@ export function activate(context: vscode.ExtensionContext): void {
       if (event.affectsConfiguration("killea.deepseek-gold-harness.locale")) {
         i18n.refresh();
         provider.postLocale();
+      }
+      if (event.affectsConfiguration("killea.deepseek-gold-harness.showDropZone")) {
+        void provider.refreshSettings();
       }
     }),
   );

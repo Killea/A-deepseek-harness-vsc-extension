@@ -12,6 +12,7 @@
   "configuration.discoveryPort.description": "Puerto de bucle invertido sondeado primero para una instancia DSH existente.",
   "configuration.managedPort.description": "Puerto de bucle invertido fijo utilizado por el runtime DSH gestionado entre ventanas. Un listener que no sea DSH se informa como conflicto.",
   "configuration.autoStart.description": "Resolver y conectar al runtime DSH global al abrir una ventana de espacio de trabajo.",
+  "configuration.showDropZone.description": "Mostrar la zona de arrastre de archivos en la barra lateral. Arrastra archivos desde el Explorador para añadirlos como referencias @."
   "configuration.locale.description": "Idioma de visualización de la interfaz de la extensión. Detecta automáticamente el idioma de VS Code cuando está vacío. Soportados: en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",

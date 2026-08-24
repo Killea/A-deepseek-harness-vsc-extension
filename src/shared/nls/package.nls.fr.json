@@ -12,6 +12,7 @@
   "configuration.discoveryPort.description": "Port de bouclage sondé en premier pour une instance DSH existante.",
   "configuration.managedPort.description": "Port de bouclage fixe utilisé par le runtime DSH géré inter-fenêtres. Un écouteur non-DSH est signalé comme conflit.",
   "configuration.autoStart.description": "Résoudre et se connecter au runtime DSH global lors de l'ouverture d'une fenêtre d'espace de travail.",
+  "configuration.showDropZone.description": "Afficher la zone de dépôt de fichiers dans la barre latérale. Glissez des fichiers depuis l'Explorateur pour les ajouter comme références @."
   "configuration.locale.description": "Langue d'affichage de l'interface de l'extension. Détection automatique de la langue d'affichage de VS Code si vide. Pris en charge : en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",

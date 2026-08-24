@@ -12,6 +12,7 @@
   "configuration.discoveryPort.description": "優先探測既有 DSH 實例的回環連接埠。",
   "configuration.managedPort.description": "跨視窗託管 DSH 執行階段使用的固定回環連接埠。非 DSH 監聽器將回報為衝突。",
   "configuration.autoStart.description": "工作區視窗開啟時解析並連線全域 DSH 執行階段。",
+  "configuration.showDropZone.description": "在側邊欄顯示檔案拖放區域。從檔案總管拖入檔案即可新增為 @ 參考。"
   "configuration.locale.description": "擴充功能介面的顯示語言。留空時自動偵測 VS Code 顯示語言。支援：en、zh-cn、zh-tw、ja、de、fr、es。",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "聊天",

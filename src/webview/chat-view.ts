@@ -545,6 +545,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case "settingsSelectLocale":
         await this.serveSelectLocale(message.id, message.locale);
         break;
+      case "settingsSelectDropZone":
+        await this.serveSelectDropZone(message.id, message.show);
+        break;
       case "settingsPickDshPath":
         await this.pickDshPath();
         break;
@@ -1640,6 +1643,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           credentials: {},
           protocols: [],
           locale: this.currentLocaleCode(),
+          showDropZone: vscode.workspace
+            .getConfiguration("killea.deepseek-gold-harness")
+            .get<boolean>("showDropZone", false),
         },
       });
     }
@@ -1797,6 +1803,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const resolved = this.i18n.resolveFromValue(locale);
       this.i18n.setLocale(resolved);
       this.post({ type: "locale", locale: resolved });
+      this.post({ type: "settingsReply", id, ok: true });
+      void this.refreshSettings();
+    } catch (error) {
+      this.post({ type: "settingsReply", id, ok: false, text: String(error) });
+    }
+  }
+
+  /** 写 showDropZone 配置项（VS Code configuration；onDidChangeConfiguration 触发面板刷新）。 */
+  private async serveSelectDropZone(
+    id: number,
+    show: boolean,
+  ): Promise<void> {
+    try {
+      const config = vscode.workspace.getConfiguration("killea.deepseek-gold-harness");
+      await config.update("showDropZone", show, vscode.ConfigurationTarget.Global);
       this.post({ type: "settingsReply", id, ok: true });
       void this.refreshSettings();
     } catch (error) {

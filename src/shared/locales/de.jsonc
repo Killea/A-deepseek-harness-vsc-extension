@@ -224,6 +224,8 @@
     "busyEnterBehaviorDesc": "Wirkt nur während der Agent läuft; Cmd/Ctrl+Enter verwendet das entgegengesetzte Verhalten",
     "busyEnterQueue": "Senden einreihen",
     "busyEnterSteer": "Senden unterbrechen",
+    "showDropZone": "Ablagezone anzeigen",
+    "showDropZoneDesc": "Datei-Ablagezone in der Seitenleiste anzeigen. Dateien aus dem Explorer ziehen, um sie als @-Referenzen hinzuzufügen.",
     "language": "Anzeigesprache",
     "languageDesc": "Anzeigesprache der Erweiterungs-Oberfläche. Änderungen werden sofort angewendet.",
     "languageAuto": "Automatisch (VS Code folgen)",

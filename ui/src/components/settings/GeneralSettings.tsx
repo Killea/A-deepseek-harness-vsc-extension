@@ -32,6 +32,11 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
   const [busyEnterSaved, setBusyEnterSaved] = useState(false)
   const [busyEnterFailure, setBusyEnterFailure] = useState<string | undefined>(undefined)
 
+  // 拖放区域开关独立状态。
+  const [dropZoneSaving, setDropZoneSaving] = useState(false)
+  const [dropZoneSaved, setDropZoneSaved] = useState(false)
+  const [dropZoneFailure, setDropZoneFailure] = useState<string | undefined>(undefined)
+
   const permission = panel.permissionDefault
   const busyEnter = panel.busyEnter
   if (permission === undefined && busyEnter === undefined) {
@@ -96,6 +101,22 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
     })
   }
 
+  const commitDropZone = (show: boolean): void => {
+    if (show === panel.showDropZone) return
+    setDropZoneSaving(true)
+    setDropZoneSaved(false)
+    setDropZoneFailure(undefined)
+    void wire.selectShowDropZone(show).then((reply) => {
+      if (!reply.ok) {
+        setDropZoneFailure(reply.conflict === true ? t('settings.configConflict') : reply.text)
+        return
+      }
+      setDropZoneSaved(true)
+    }).finally(() => {
+      setDropZoneSaving(false)
+    })
+  }
+
   return (
     <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-3 py-2">
       <h2 className="text-sm">{t('settings.general')}</h2>
@@ -149,6 +170,30 @@ export function GeneralSettings({ panel, wire }: GeneralSettingsProps) {
           {busyEnterFailure !== undefined ? <p className="text-xs text-error">{busyEnterFailure}</p> : null}
         </div>
       )}
+
+      <div className="flex flex-col gap-1.5 rounded-xs border border-border-panel p-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0">
+            <span className="block text-sm">{t('settings.showDropZone')}</span>
+            <span className="block text-xs text-description">{t('settings.showDropZoneDesc')}</span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={panel.showDropZone}
+            aria-label={t('settings.showDropZone')}
+            disabled={dropZoneSaving}
+            onClick={() => commitDropZone(!panel.showDropZone)}
+            className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors`}
+            style={{ backgroundColor: panel.showDropZone ? 'var(--vscode-focusBorder, #007fd4)' : 'var(--vscode-input-border, #454545)' }}
+          >
+            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${panel.showDropZone ? 'translate-x-4.5' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        {dropZoneSaving ? <p className="text-xs text-description">{t('common.saving')}</p> : null}
+        {dropZoneSaved ? <p className="text-xs text-success" role="status">{t('common.saved')}</p> : null}
+        {dropZoneFailure !== undefined ? <p className="text-xs text-error">{dropZoneFailure}</p> : null}
+      </div>
 
       {pending !== null && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40">

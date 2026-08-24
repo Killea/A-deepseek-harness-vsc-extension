@@ -224,6 +224,8 @@
     "busyEnterBehaviorDesc": "Only takes effect while the agent is running; Cmd/Ctrl+Enter uses the opposite behavior",
     "busyEnterQueue": "Queue send",
     "busyEnterSteer": "Interrupt send",
+    "showDropZone": "Show drop zone",
+    "showDropZoneDesc": "Show the file drop zone in the sidebar. Drag files from Explorer to add them as @ references.",
     "language": "Display language",
     "languageDesc": "Language for the extension UI. Changes apply instantly.",
     "languageAuto": "Auto (follow VS Code)",

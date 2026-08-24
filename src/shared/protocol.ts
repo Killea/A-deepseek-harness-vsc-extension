@@ -271,6 +271,7 @@ export type WebviewToExtensionMessage =
     }
   // 「通用」页：写显示语言（killea.deepseek-gold-harness.locale 配置项；null = 自动跟随 VS Code）。
   | { type: "settingsSelectLocale"; id: number; locale: string | null }
+  | { type: "settingsSelectDropZone"; id: number; show: boolean }
   // M6: 引导页「选择 dsh 文件…」：文件选择器 → 写 killea.deepseek-gold-harness.dshPath → 重启服务。
   | { type: "settingsPickDshPath" }
   // M6: 引导页「重试」：error 态重启 dsh 服务（不经文件选择器，沿用现有 launcher）。
@@ -842,6 +843,8 @@ export interface SettingsPanelView {
   busyEnter?: BusyEnterView;
   /** 「通用」页显示语言（killea.deepseek-gold-harness.locale；null = 自动跟随 VS Code）。 */
   locale: string | null;
+  /** 「通用」页拖放区域可见性（killea.deepseek-gold-harness.showDropZone）。 */
+  showDropZone: boolean;
 }
 
 /** host.describe 视图（dsh 包页：host 运行时事实）。 */

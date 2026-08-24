@@ -400,6 +400,8 @@ export default function App() {
       requestReply((id) => post({ type: 'settingsSelectBusyEnter', id, behavior, expectedRevision })),
     selectLocale: (locale) =>
       requestReply((id) => post({ type: 'settingsSelectLocale', id, locale })),
+    selectShowDropZone: (show) =>
+      requestReply((id) => post({ type: 'settingsSelectDropZone', id, show })),
     openSettingsYaml: () => post({ type: 'openSettingsYaml' }),
     openExtensionSettings: () => post({ type: 'openExtensionSettings' }),
     refresh: () => post({ type: 'settingsRefresh' }),

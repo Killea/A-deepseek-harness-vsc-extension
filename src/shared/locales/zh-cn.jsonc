@@ -223,6 +223,8 @@
     "busyEnterBehaviorDesc": "仅在智能体运行时生效；Cmd/Ctrl+Enter 使用另一行为",
     "busyEnterQueue": "排队发送",
     "busyEnterSteer": "插话发送",
+    "showDropZone": "显示拖放区域",
+    "showDropZoneDesc": "在侧边栏显示文件拖放区域。从资源管理器拖入文件即可添加为 @ 引用。",
     "language": "显示语言",
     "languageDesc": "扩展界面的显示语言。切换后即时生效。",
     "languageAuto": "自动（跟随 VS Code）",

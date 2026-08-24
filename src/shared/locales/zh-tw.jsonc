@@ -224,6 +224,8 @@
     "busyEnterBehaviorDesc": "僅在代理執行時生效；Cmd/Ctrl+Enter 使用相反行為",
     "busyEnterQueue": "排隊傳送",
     "busyEnterSteer": "中斷傳送",
+    "showDropZone": "顯示拖放區域",
+    "showDropZoneDesc": "在側邊欄顯示檔案拖放區域。從檔案總管拖入檔案即可新增為 @ 參考。",
     "language": "顯示語言",
     "languageDesc": "擴充功能介面的顯示語言。切換後即時生效。",
     "languageAuto": "自動（跟隨 VS Code）",
