@@ -88,7 +88,8 @@
     "skillUserOnly": "ユーザーのみ · {{description}}",
     "activeFileEnabledTitle": "有効：このファイルはメッセージと共に @ 参照として送信されます（クリックで無効化）",
     "activeFileDisabledTitle": "無効：このファイルは会話入力として使用されません（クリックで有効化）",
-    "activeFileDirtyTitle": "未保存の変更あり"
+    "activeFileDirtyTitle": "未保存の変更あり",
+    "dragDropHint": "Shift を押しながらエクスプローラーからファイルをドロップして @ 参照として追加"
   },
 
   "sessionList": {

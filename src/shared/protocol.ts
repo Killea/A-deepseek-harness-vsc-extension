@@ -120,7 +120,13 @@ export type ExtensionToWebviewMessage =
       conflict?: boolean;
     }
   // i18n: 推送当前 locale 代码（hydrate + 配置变更时；webview 据此 changeLanguage）。
-  | { type: "locale"; locale: string };
+  | { type: "locale"; locale: string }
+  // 文件拖入区（TreeView handleDrop）：从 Explorer 拖入的文件路径列表，
+  // webview 接收后插入到 Composer textarea 光标处作为 @ 引用。
+  | { type: "droppedFiles"; paths: string[] }
+  // 图片拖入区（TreeView handleDrop）：extension host 读取图片文件为 base64，
+  // webview 接收后加入 Composer images（和粘贴图片效果一致：缩略图 + base64 附件）。
+  | { type: "droppedImages"; images: ImageAttachmentInput[] };
 
 /** Base64-encoded image attachment accompanying a send message. */
 export interface ImageAttachmentInput {

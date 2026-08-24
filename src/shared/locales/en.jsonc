@@ -88,7 +88,8 @@
     "skillUserOnly": "User only · {{description}}",
     "activeFileEnabledTitle": "Enabled: this file will be sent as an @ reference with the message (click to disable)",
     "activeFileDisabledTitle": "Disabled: this file will not be used as conversation input (click to enable)",
-    "activeFileDirtyTitle": "Has unsaved changes"
+    "activeFileDirtyTitle": "Has unsaved changes",
+    "dragDropHint": "Hold Shift and drop files from Explorer to add as @ references"
   },
 
   "sessionList": {

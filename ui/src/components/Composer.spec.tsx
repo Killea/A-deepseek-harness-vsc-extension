@@ -34,6 +34,11 @@ function renderComposer(overrides: {
       activeFile={overrides.activeFile === undefined ? FILE : overrides.activeFile}
       activeFileEnabled={overrides.activeFileEnabled ?? true}
       onActiveFileToggle={overrides.onActiveFileToggle ?? (() => {})}
+      insertAtCursor={null}
+      onInsertAtCursorConsumed={() => {}}
+      pendingImages={null}
+      onPendingImagesConsumed={() => {}}
+
       commands={null}
       skills={null}
       onCommandOpen={() => {}}

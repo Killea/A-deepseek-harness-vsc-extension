@@ -65,6 +65,14 @@ interface ComposerProps {
   activeFileEnabled: boolean
   /** 自动附带：眼睛开关点击 → 翻转启用态。 */
   onActiveFileToggle: (enabled: boolean) => void
+  /** Drop Zone TreeView 拖入的文件路径 → 插入到 textarea 光标处作为 @ 引用。 */
+  insertAtCursor: { seq: number; text: string } | null
+  /** 插入完成后回调（清除触发信号）。 */
+  onInsertAtCursorConsumed: () => void
+  /** Drop Zone TreeView 拖入的图片 → 加入 images state（模拟粘贴效果）。 */
+  pendingImages: { seq: number; images: ImageAttachmentInput[] } | null
+  /** 图片添加完成后回调（清除触发信号）。 */
+  onPendingImagesConsumed: () => void
   /** / 命令目录快照（契约跟随；null = 未知/加载中——绝不静默降级为普通文本）。 */
   commands: { available: boolean; items: CommandDescriptorView[] } | null
   /** / 菜单技能目录快照（skill.list；null = 未知/加载中；纯附加、不参与 commands 门槛）。 */
@@ -144,6 +152,10 @@ export function Composer({
   activeFile,
   activeFileEnabled,
   onActiveFileToggle,
+  insertAtCursor,
+  onInsertAtCursorConsumed,
+  pendingImages,
+  onPendingImagesConsumed,
   commands,
   skills,
   onCommandOpen,
@@ -279,9 +291,11 @@ export function Composer({
     }
     if (decision === 'send') {
       // 普通消息：手势透传，扩展侧按 running + busyEnter 解析 queue/steer；
-      // 眼睛启用的自动附带文件随消息回传（用户手 @ 的文件已留在输入文本里）。
+      // 眼睛启用的自动附带文件随消息回传（拖入文件已作为 @ 引用插入输入文本）。
       const imageInputs = images.length > 0 ? images.map(({ thumbUrl: _, ...rest }) => rest) : undefined
-      onSend(value, gesture, activeFile !== null && activeFileEnabled ? [activeFile.absolutePath] : [], imageInputs)
+      const attachments: string[] = []
+      if (activeFile !== null && activeFileEnabled) attachments.push(activeFile.absolutePath)
+      onSend(value, gesture, attachments, imageInputs)
       return
     }
     // 运行锁：/ 命令、/model、/permission 等会话动作在运行期间冻结（不经 busy-enter 路径）。
@@ -441,6 +455,43 @@ export function Composer({
     }, 1500)
     return () => clearTimeout(timer)
   }, [menu.permission, permissions])
+
+  // Drop Zone TreeView 拖入文件 → 在 textarea 光标处插入 @引用文本。
+  // 用 seq 触发（即使路径相同也重新插入）；text 为空时跳过。
+  useEffect(() => {
+    if (!insertAtCursor || insertAtCursor.text === '') return
+    onInsertAtCursorConsumed()
+    const el = inputRef.current
+    const insertText = insertAtCursor.text
+    if (el) {
+      const pos = el.selectionStart ?? text.length
+      const end = el.selectionEnd ?? pos
+      // 在光标处插入 @引用 + 尾随空格。
+      const gap = end < text.length && text[end] !== ' ' ? ' ' : ''
+      const inserted = `${insertText} `
+      pendingCursorRef.current = pos + inserted.length
+      setText(text.slice(0, pos) + inserted + gap + text.slice(end))
+    } else {
+      // textarea 未挂载时追加到末尾。
+      const inserted = `${insertText} `
+      pendingCursorRef.current = text.length + inserted.length
+      setText(text + inserted)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insertAtCursor?.seq])
+
+  // Drop Zone TreeView 拖入图片 → 加入 images state（模拟粘贴效果）。
+  // extension host 已读取图片为 base64，这里只需构造 data URL 作缩略图。
+  useEffect(() => {
+    if (!pendingImages || pendingImages.images.length === 0) return
+    onPendingImagesConsumed()
+    const newImages = pendingImages.images.map((img) => ({
+      ...img,
+      thumbUrl: `data:${img.mediaType};base64,${img.data}`,
+    }))
+    setImages((prev) => [...prev, ...newImages])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingImages?.seq])
 
   // M3b: 扩展侧 @ 插入文本到达 → 替换触发 span（用户已改动则丢弃）。
   // 插入文本后跟一个分隔空格（insertionGap）：@ 引用/命令 token 由此成为独立词，
@@ -806,7 +857,9 @@ export function Composer({
           </div>
         )}
         {/* 输入盒容器：textarea + 高亮层 + 内嵌底部工具栏（Codex 风格）。 */}
-        <div className={`relative flex flex-col rounded-lg bg-input-background composer-glow ${focused ? 'composer-glow-focused' : ''}`}>
+        <div
+          className={`relative flex flex-col rounded-lg bg-input-background composer-glow ${focused ? 'composer-glow-focused' : ''}`}
+        >
           {/* 高亮层：@/ 命令 token 画成透明文字 + 底色圆角。 */}
           <div
             ref={highlightRef}

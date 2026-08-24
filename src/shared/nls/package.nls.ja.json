@@ -15,5 +15,6 @@
   "configuration.locale.description": "拡張機能 UI の表示言語。空の場合は VS Code の表示言語を自動検出します。サポート: en、zh-cn、zh-tw、ja、de、fr、es。",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "チャット",
-  "views.chat.contextualTitle": "dsh チャット"
+  "views.chat.contextualTitle": "dsh チャット",
+  "views.dropZone.name": " "
 }

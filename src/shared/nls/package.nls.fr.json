@@ -15,5 +15,6 @@
   "configuration.locale.description": "Langue d'affichage de l'interface de l'extension. Détection automatique de la langue d'affichage de VS Code si vide. Pris en charge : en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",
-  "views.chat.contextualTitle": "Chat dsh"
+  "views.chat.contextualTitle": "Chat dsh",
+  "views.dropZone.name": " "
 }

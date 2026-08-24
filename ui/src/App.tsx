@@ -83,11 +83,20 @@ export default function App() {
   const [fileIndex, setFileIndex] = useState<Set<string>>(new Set())
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  // Ref 镜像：onMessage 闭包（依赖 []）需要读取最新选中会话，避免 stale closure。
+  const selectedSessionIdRef = useRef<string | null>(null)
+  useEffect(() => { selectedSessionIdRef.current = selectedSessionId }, [selectedSessionId])
   const [conversations, setConversations] = useState<Record<string, ConversationSnapshot>>({})
   // Every composer-facing slot is session keyed; the unbound draft has its
   // own sentinel key until a real session accepts it.
   const [drafts, setDrafts] = useState<Record<string, string>>({ [UNBOUND_COMPOSER]: '' })
   const [composerKeys, setComposerKeys] = useState<string[]>([UNBOUND_COMPOSER])
+  // Drop Zone TreeView 拖入的文件路径 → 插入到 textarea 光标处作为 @ 引用。
+  // 用递增 seq 触发 Composer 的 useEffect（即使路径相同也重新插入）。
+  const [insertAtCursorByKey, setInsertAtCursorByKey] = useState<Record<string, { seq: number; text: string }>>({})
+  // Drop Zone TreeView 拖入的图片 → extension host 已读取为 base64，
+  // 用递增 seq 触发 Composer 的 useEffect 把图片加入 images state。
+  const [pendingImagesByKey, setPendingImagesByKey] = useState<Record<string, { seq: number; images: ImageAttachmentInput[] }>>({})
   const [atCandidatesBySession, setAtCandidatesBySession] = useState<Record<string, AtCandidatesView | null>>({})
   const [atInsertBySession, setAtInsertBySession] = useState<Record<string, string | null>>({})
   const [commandsBySession, setCommandsBySession] = useState<Record<string, CommandsSnapshot | null>>({})
@@ -158,6 +167,32 @@ export default function App() {
             setLocaleVersion((v) => v + 1)
           })
           break
+        case 'droppedFiles': {
+          // Drop Zone TreeView 拖入的文件路径 → 插入到 textarea 光标处作为 @ 引用。
+          // 用 ref 读取最新选中会话（onMessage 闭包依赖 []，直接读 state 会 stale）。
+          const key = composerKey(selectedSessionIdRef.current)
+          // 把每个路径格式化为 @引用，用空格连接。
+          const insertText = message.paths.map((p) => `@${p}`).join(' ')
+          if (insertText) {
+            setInsertAtCursorByKey((prev) => {
+              const prevSeq = prev[key]?.seq ?? 0
+              return { ...prev, [key]: { seq: prevSeq + 1, text: insertText } }
+            })
+          }
+          break
+        }
+        case 'droppedImages': {
+          // Drop Zone TreeView 拖入的图片 → extension host 已读取为 base64，
+          // 加入 Composer images（和粘贴图片效果一致：缩略图 + base64 附件）。
+          const key = composerKey(selectedSessionIdRef.current)
+          if (message.images.length > 0) {
+            setPendingImagesByKey((prev) => {
+              const prevSeq = prev[key]?.seq ?? 0
+              return { ...prev, [key]: { seq: prevSeq + 1, images: message.images } }
+            })
+          }
+          break
+        }
         case 'notice':
           setNotice(message.text)
           break
@@ -717,6 +752,20 @@ export default function App() {
               activeFileEnabled={activeFileEnabledByKey[key] ?? true}
               onActiveFileToggle={(enabled) =>
                 setActiveFileEnabledByKey((prev) => ({ ...prev, [key]: enabled }))
+              }
+              insertAtCursor={insertAtCursorByKey[key] ?? null}
+              onInsertAtCursorConsumed={() =>
+                setInsertAtCursorByKey((prev) => {
+                  if (!prev[key]) return prev
+                  return { ...prev, [key]: { seq: prev[key].seq, text: '' } }
+                })
+              }
+              pendingImages={pendingImagesByKey[key] ?? null}
+              onPendingImagesConsumed={() =>
+                setPendingImagesByKey((prev) => {
+                  if (!prev[key]) return prev
+                  return { ...prev, [key]: { seq: prev[key].seq, images: [] } }
+                })
               }
               commands={commandsBySession[key] ?? null}
               skills={skillsBySession[key] ?? null}

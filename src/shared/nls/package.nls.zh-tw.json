@@ -15,5 +15,6 @@
   "configuration.locale.description": "擴充功能介面的顯示語言。留空時自動偵測 VS Code 顯示語言。支援：en、zh-cn、zh-tw、ja、de、fr、es。",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "聊天",
-  "views.chat.contextualTitle": "dsh 聊天"
+  "views.chat.contextualTitle": "dsh 聊天",
+  "views.dropZone.name": " "
 }

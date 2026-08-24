@@ -88,7 +88,8 @@
     "skillUserOnly": "僅使用者 · {{description}}",
     "activeFileEnabledTitle": "已啟用：此檔案將作為 @ 參照隨訊息傳送（點擊以停用）",
     "activeFileDisabledTitle": "已停用：此檔案不會用作對話輸入（點擊以啟用）",
-    "activeFileDirtyTitle": "有未儲存的變更"
+    "activeFileDirtyTitle": "有未儲存的變更",
+    "dragDropHint": "按住 Shift 從檔案總管拖入檔案作為 @ 參照"
   },
 
   "sessionList": {

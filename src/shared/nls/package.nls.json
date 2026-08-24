@@ -15,5 +15,7 @@
   "configuration.locale.description": "Display language for the extension UI. Auto-detects VS Code's display language when empty. Supported: en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",
-  "views.chat.contextualTitle": "dsh Chat"
+  "views.chat.contextualTitle": "dsh Chat",
+  "views.dropZone.name": " ",
+  "views.dropZone.welcome": "\n\n📦 **Drop Zone**\n\nDrag files from the Explorer here to attach them as `@` references.\n\n"
 }

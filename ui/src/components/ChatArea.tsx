@@ -1,7 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConversationItem, ToolResultView } from '../../../src/shared/protocol.ts'
-import { SPINNER_VERBS } from '../spinner-verbs.ts'
+import { getSpinnerVerbs } from '../spinner-verbs.ts'
+
+/** 动态省略号：active 时每 500ms 在 . → .. → ... 之间循环。 */
+function useAnimatedDots(active: boolean): string {
+  const [dots, setDots] = useState(1)
+  useEffect(() => {
+    if (!active) return
+    const timer = setInterval(() => setDots((n) => (n % 3) + 1), 500)
+    return () => clearInterval(timer)
+  }, [active])
+  return '.'.repeat(dots)
+}
 import { MarkdownText, type MarkdownCodeLabels, type MarkdownFileMentions } from '../markdown/MarkdownText.tsx'
 import {
   IconApiOutline14,
@@ -85,7 +96,9 @@ function UserItemView({ text }: { text: string }) {
  * 流式期间标题 shimmer 且自动滚底；结束后自动收起（除非用户手动展开过）。
  */
 function ThinkingSection({ reasoning, streaming }: { reasoning: string; streaming: boolean }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const verbs = getSpinnerVerbs(i18n.language)
+  const dots = useAnimatedDots(streaming)
   const [expanded, setExpanded] = useState(streaming)
   const [userToggled, setUserToggled] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -93,18 +106,18 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
   const [canScrollDown, setCanScrollDown] = useState(false)
 
   // Claude-style rotating spinner verbs while streaming.
-  const [verbIndex, setVerbIndex] = useState(() => Math.floor(Math.random() * SPINNER_VERBS.length))
+  const [verbIndex, setVerbIndex] = useState(() => Math.floor(Math.random() * verbs.length))
   useEffect(() => {
     if (!streaming) return
     const timer = setInterval(() => {
       setVerbIndex((prev) => {
-        let next = Math.floor(Math.random() * SPINNER_VERBS.length)
-        if (next === prev) next = (next + 1) % SPINNER_VERBS.length
+        let next = Math.floor(Math.random() * verbs.length)
+        if (next === prev) next = (next + 1) % verbs.length
         return next
       })
     }, 2000)
     return () => clearInterval(timer)
-  }, [streaming])
+  }, [streaming, verbs.length])
 
   useEffect(() => {
     if (!streaming && !userToggled) {
@@ -146,7 +159,7 @@ function ThinkingSection({ reasoning, streaming }: { reasoning: string; streamin
               : ''
           }
         >
-          {streaming ? `${SPINNER_VERBS[verbIndex]}…` : t('chat.thinking')}
+          {streaming ? `${verbs[verbIndex % verbs.length]}${dots}` : t('chat.thinking')}
         </span>
         {expanded ? (
           <IconChevronDownOutline14 size={12} className="shrink-0 text-description" />
@@ -668,7 +681,9 @@ function ItemView({
 export function ChatArea({
   items, running, sessionId, hasMore, loadingOlder, loadOlderError, onLoadOlder, workspacePath, onOpenFile, onOpenExternalUrl, fileMentions, turnStartMs, lastTurnMs,
 }: ChatAreaProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const verbs = getSpinnerVerbs(i18n.language)
+  const dots = useAnimatedDots(running)
   const scrollRef = useRef<HTMLDivElement>(null)
   // 加载更早的滚动锚：记录点击时视口顶相对内容顶的偏移，新页前置后复位——
   // 视口停在原消息上不跳动（对齐参考客户端 loadOlderAnchored）。
@@ -686,18 +701,18 @@ export function ChatArea({
   }, [items])
 
   // Rotating spinner verb for the empty-state running message.
-  const [emptyVerb, setEmptyVerb] = useState(() => Math.floor(Math.random() * SPINNER_VERBS.length))
+  const [emptyVerb, setEmptyVerb] = useState(() => Math.floor(Math.random() * verbs.length))
   useEffect(() => {
     if (!running) return
     const timer = setInterval(() => {
       setEmptyVerb((prev) => {
-        let next = Math.floor(Math.random() * SPINNER_VERBS.length)
-        if (next === prev) next = (next + 1) % SPINNER_VERBS.length
+        let next = Math.floor(Math.random() * verbs.length)
+        if (next === prev) next = (next + 1) % verbs.length
         return next
       })
     }, 2000)
     return () => clearInterval(timer)
-  }, [running])
+  }, [running, verbs.length])
 
   // 实时计时：running 且有 turnStartMs 时每 200ms 重渲染以刷新流逝时间。
   const [, setTick] = useState(0)
@@ -706,6 +721,20 @@ export function ChatArea({
     const timer = setInterval(() => setTick((n) => n + 1), 200)
     return () => clearInterval(timer)
   }, [running, turnStartMs])
+
+  // 底部 replying 行的轮换动词（与空状态动词独立，两者渲染分支互斥）。
+  const [replyVerb, setReplyVerb] = useState(() => Math.floor(Math.random() * verbs.length))
+  useEffect(() => {
+    if (!running) return
+    const timer = setInterval(() => {
+      setReplyVerb((prev) => {
+        let next = Math.floor(Math.random() * verbs.length)
+        if (next === prev) next = (next + 1) % verbs.length
+        return next
+      })
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [running, verbs.length])
 
   const liveElapsedMs = running && typeof turnStartMs === 'number' && turnStartMs > 0
     ? Math.max(0, Date.now() - turnStartMs)
@@ -770,7 +799,7 @@ export function ChatArea({
             <p className="px-6 text-center text-sm text-description">
               {running ? (
                 <span className="inline-flex items-center gap-1.5">
-                  {`${SPINNER_VERBS[emptyVerb]}…`}
+                  {`${verbs[emptyVerb % verbs.length]}${dots}`}
                   {liveElapsedMs !== null ? (
                     <span className="font-mono text-xs text-description/70">{formatDuration(liveElapsedMs)}</span>
                   ) : null}
@@ -803,7 +832,7 @@ export function ChatArea({
           {running ? (
             <div className="flex items-center gap-1.5 pt-2.5 text-xs text-description">
               <IconLoadingOutline16 size={12} className="shrink-0 animate-spin" />
-              {t('chat.replying')}
+              {`${verbs[replyVerb % verbs.length]}${dots}`}
               {liveElapsedMs !== null ? (
                 <span className="shrink-0 font-mono text-description/70">{formatDuration(liveElapsedMs)}</span>
               ) : null}

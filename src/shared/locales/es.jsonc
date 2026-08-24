@@ -88,7 +88,8 @@
     "skillUserOnly": "Solo usuario · {{description}}",
     "activeFileEnabledTitle": "Activado: este archivo se enviará como referencia @ con el mensaje (clic para desactivar)",
     "activeFileDisabledTitle": "Desactivado: este archivo no se usará como entrada de conversación (clic para activar)",
-    "activeFileDirtyTitle": "Tiene cambios sin guardar"
+    "activeFileDirtyTitle": "Tiene cambios sin guardar",
+    "dragDropHint": "Mantén Shift y suelta archivos del Explorador como referencias @"
   },
 
   "sessionList": {

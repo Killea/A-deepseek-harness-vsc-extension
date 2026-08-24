@@ -29,10 +29,20 @@ import {
 } from "./services/settings-service.ts";
 import { I18nService } from "./services/i18n-service.ts";
 import { ChatViewProvider } from "./webview/chat-view.ts";
+import { DropZoneProvider } from "./webview/drop-zone.ts";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("DeepSeek Harness");
   const log = (line: string): void => output.appendLine(line);
+
+  // Drop Zone TreeView：原生 TreeView 作为文件拖放区（不需要 Shift）。
+  // post 回调稍后通过 setPost 绑定（ChatViewProvider 创建后）。
+  const dropZoneProvider = new DropZoneProvider(output);
+  const dropZoneView = vscode.window.createTreeView(DropZoneProvider.viewId, {
+    treeDataProvider: dropZoneProvider,
+    dragAndDropController: dropZoneProvider,
+  });
+  context.subscriptions.push(dropZoneView);
 
   const config = vscode.workspace.getConfiguration("killea.deepseek-gold-harness");
   const explicitPath = config.get<string | null>("dshPath", null);
@@ -317,6 +327,9 @@ export function activate(context: vscode.ExtensionContext): void {
       },
     ),
   );
+
+  // Drop Zone TreeView：绑定 post 回调（ChatViewProvider 已创建）。
+  dropZoneProvider.setPost((msg) => provider.post(msg));
 
   // 自动附带：活动编辑器 / 保存 / 文档变更 → 上送当前文件（composer 下方文件条）。
   // 以 路径+dirty 为键去重——打字只会在 dirty 翻转（false→true）时补发一次，

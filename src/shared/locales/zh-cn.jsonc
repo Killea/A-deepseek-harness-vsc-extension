@@ -87,7 +87,8 @@
     "skillUserOnly": "仅用户 · {{description}}",
     "activeFileEnabledTitle": "已启用：该文件将作为 @ 引用随消息发送（点击停用）",
     "activeFileDisabledTitle": "已停用：该文件不会作为对话输入（点击启用）",
-    "activeFileDirtyTitle": "有未保存的修改"
+    "activeFileDirtyTitle": "有未保存的修改",
+    "dragDropHint": "按住 Shift 从资源管理器拖入文件作为 @ 引用"
   },
 
   "sessionList": {

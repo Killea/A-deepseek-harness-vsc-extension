@@ -88,7 +88,8 @@
     "skillUserOnly": "Utilisateur uniquement · {{description}}",
     "activeFileEnabledTitle": "Activé : ce fichier sera envoyé comme référence @ avec le message (cliquer pour désactiver)",
     "activeFileDisabledTitle": "Désactivé : ce fichier ne sera pas utilisé comme entrée de conversation (cliquer pour activer)",
-    "activeFileDirtyTitle": "Contient des modifications non enregistrées"
+    "activeFileDirtyTitle": "Contient des modifications non enregistrées",
+    "dragDropHint": "Maintenir Shift et déposer les fichiers de l'Explorateur comme références @"
   },
 
   "sessionList": {

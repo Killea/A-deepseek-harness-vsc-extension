@@ -88,7 +88,8 @@
     "skillUserOnly": "Nur Benutzer · {{description}}",
     "activeFileEnabledTitle": "Aktiviert: Diese Datei wird als @-Referenz mit der Nachricht gesendet (Klick zum Deaktivieren)",
     "activeFileDisabledTitle": "Deaktiviert: Diese Datei wird nicht als Konversationseingabe verwendet (Klick zum Aktivieren)",
-    "activeFileDirtyTitle": "Hat ungespeicherte Änderungen"
+    "activeFileDirtyTitle": "Hat ungespeicherte Änderungen",
+    "dragDropHint": "Shift gedrückt halten und Dateien aus dem Explorer als @-Referenz ablegen"
   },
 
   "sessionList": {

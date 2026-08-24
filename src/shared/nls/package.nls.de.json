@@ -15,5 +15,6 @@
   "configuration.locale.description": "Anzeigesprache der Erweiterungs-Oberfläche. Bei leerem Wert wird die VS Code-Anzeigesprache automatisch erkannt. Unterstützt: en, zh-cn, zh-tw, ja, de, fr, es.",
   "viewsContainers.secondarySidebar.title": "DeepSeek Harness",
   "views.chat.name": "Chat",
-  "views.chat.contextualTitle": "dsh Chat"
+  "views.chat.contextualTitle": "dsh Chat",
+  "views.dropZone.name": " "
 }
