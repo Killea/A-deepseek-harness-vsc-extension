@@ -196,17 +196,6 @@ body:focus-within .scrollable {
   color: transparent;
 }
 
-/* @ 引用短标签：inline-block + max-width 裁剪视觉宽度，textarea 内仍保留完整路径。
-   vertical-align: bottom 保持与同行文字基线对齐；overflow hidden + ellipsis 截断长路径。 */
-.mention-tag {
-  display: inline-block;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: bottom;
-}
-
 /* ---- claim 命令的 hint 幽灵文本（`/plan ` 后的 `[off|message]`）---- */
 .slash-claim-hint {
   color: color-mix(in srgb, var(--vscode-input-placeholderForeground) 80%, transparent);

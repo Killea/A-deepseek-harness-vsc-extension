@@ -125,23 +125,10 @@ const escapeHtml = (s: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
 
-/** 从 @引用 token 中提取文件名（最后一个 / 之后的部分）用于短标签显示。 */
-const shortLabel = (token: string): string => {
-  const slash = token.lastIndexOf('/')
-  if (slash <= 0) return token // 无路径分隔或仅 @file
-  return `@…${token.slice(slash)}`
-}
-
-/** 高亮 @ 引用 token 与（行首/空白后的）/ 命令 token（对齐 Cline 的 highlight 层）。
- *  @ 引用：高亮层显示短标签（文件名），textarea 内仍是完整路径；mark 用 inline-block +
- *  max-width + ellipsis 裁剪视觉宽度，title 属性提供完整路径 tooltip。 */
+/** 高亮 @ 引用 token 与（行首/空白后的）/ 命令 token（对齐 Cline 的 highlight 层）。 */
 const highlightTokens = (value: string): string =>
   escapeHtml(value)
-    .replace(/(^|\s)(@\S+)/gu, (_, pre: string, token: string) => {
-      const label = escapeHtml(shortLabel(token))
-      const full = escapeHtml(token)
-      return `${pre}<mark class="mention-context-textarea-highlight mention-tag" title="${full}">${label}</mark>`
-    })
+    .replace(/(^|\s)(@\S+)/gu, (_, pre: string, token: string) => `${pre}<mark class="mention-context-textarea-highlight">${token}</mark>`)
     .replace(/(^|\s)(\/[A-Za-z0-9_.-]+)/gu, (_, pre: string, token: string) => `${pre}<mark class="mention-context-textarea-highlight">${token}</mark>`)
 
 /**
