@@ -1,7 +1,7 @@
 import { createServer, type Server } from "node:http";
 import { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { normalizeDshBaseUrl, probeDsh } from "../src/dsh/probe.ts";
 
 const servers: Server[] = [];
@@ -15,21 +15,37 @@ afterEach(async () => {
 });
 
 describe("probeDsh", () => {
-  it("recognizes the DSH RPC envelope and both event downlinks without rejecting its version", async () => {
-    const baseUrl = await startFixture(
-      ["/api/events.mux", "/api/events.host"],
-      "0.0.1",
-    );
+  it("recognizes the DSH multiplexed remote.mux WebSocket and $events ready frame", async () => {
+    const baseUrl = await startFixture(true, "/fixture-home");
 
     await expect(probeDsh(baseUrl)).resolves.toMatchObject({
       kind: "dsh",
       baseUrl,
-      description: { version: "0.0.1", cwd: "/fixture" },
+      description: { home: "/fixture-home" },
     });
   });
 
-  it("does not recognize an endpoint when one DSH downlink is missing", async () => {
-    const baseUrl = await startFixture(["/api/events.mux"], "9.9.9");
+  it("does not recognize an endpoint when remote.mux is missing", async () => {
+    const baseUrl = await startFixture(false, "/fixture-home");
+
+    await expect(probeDsh(baseUrl)).resolves.toMatchObject({
+      kind: "not-dsh",
+      baseUrl,
+    });
+  });
+
+  it("passes the cookie header in the WebSocket upgrade when provided", async () => {
+    const baseUrl = await startFixture(true, "/fixture-home", "test-cookie-value");
+
+    await expect(probeDsh(baseUrl, 3_000, "test-cookie-value")).resolves.toMatchObject({
+      kind: "dsh",
+      baseUrl,
+      description: { home: "/fixture-home" },
+    });
+  });
+
+  it("rejects when the server requires a cookie but none is provided", async () => {
+    const baseUrl = await startFixture(true, "/fixture-home", "test-cookie-value");
 
     await expect(probeDsh(baseUrl)).resolves.toMatchObject({
       kind: "not-dsh",
@@ -47,49 +63,59 @@ describe("probeDsh", () => {
   });
 });
 
+/**
+ * Start a fixture server that either accepts /api/remote.mux upgrades and
+ * delivers the $events ready frame (when serveMux=true), or rejects all
+ * upgrades (when serveMux=false). When requireCookie is set, the upgrade is
+ * rejected unless the Cookie header matches.
+ */
 async function startFixture(
-  upgradePaths: string[],
-  version: string,
+  serveMux: boolean,
+  home: string,
+  requireCookie?: string,
 ): Promise<string> {
-  const server = createServer((request, response) => {
-    if (request.url !== "/api/host.describe" || request.method !== "POST") {
-      response.writeHead(404).end();
-      return;
-    }
-    let body = "";
-    request.setEncoding("utf8");
-    request.on("data", (chunk) => {
-      body += String(chunk);
-    });
-    request.on("end", () => {
-      const message = JSON.parse(body) as { rpcId: string };
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(
-        JSON.stringify({
-          type: "server-response",
-          rpcId: message.rpcId,
-          result: {
-            ok: true,
-            value: {
-              version,
-              cwd: "/fixture",
-              attachedSessions: 0,
-              canOpenPath: false,
-            },
-          },
-        }),
-      );
-    });
+  const server = createServer((_request, response) => {
+    response.writeHead(404).end();
   });
   const wss = new WebSocketServer({ noServer: true });
   server.on("upgrade", (request, socket, head) => {
-    if (!request.url || !upgradePaths.includes(request.url)) {
+    if (!serveMux || request.url !== "/api/remote.mux") {
       socket.destroy();
       return;
+    }
+    if (requireCookie !== undefined) {
+      const cookie = request.headers.cookie;
+      if (cookie !== requireCookie) {
+        socket.destroy();
+        return;
+      }
     }
     wss.handleUpgrade(request, socket, head, (ws) =>
       wss.emit("connection", ws, request),
     );
+  });
+  wss.on("connection", (ws: WebSocket) => {
+    ws.on("message", (data) => {
+      const message = JSON.parse(String(data)) as {
+        type: string;
+        streamId: string;
+        endpoint: string;
+      };
+      if (message.type === "open" && message.endpoint === "$events") {
+        // Send the ready item.
+        ws.send(
+          JSON.stringify({
+            type: "item",
+            streamId: message.streamId,
+            value: {
+              type: "ready",
+              clientId: "fixture-client",
+              host: { home },
+            },
+          }),
+        );
+      }
+    });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   servers.push(server);

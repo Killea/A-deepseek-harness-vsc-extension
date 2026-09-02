@@ -206,8 +206,9 @@ export function Composer({
   // routable=false：输入框 inert（模型目录快照里 host 报告当前路由无 adapter 服务）。
   const routableBlocked = models?.routable === false
   // 会话运行锁放宽：运行期间仍允许输入编辑（打字 + @ 引用），但发送与 / 命令、模型、权限
-  // 等会话动作仍冻结。故 inputDisabled 不再含 running；running 改在 guard 层压制 / 触发。
-  const inputDisabled = disabled || submitting || routableBlocked
+  // 等会话动作仍冻结。故 inputDisabled 不再含 running/submitting；running 改在 guard 层压制 / 触发，
+  // submitting 仅在按钮 disabled 与 send() 内部拦截（不冻结输入框编辑）。
+  const inputDisabled = disabled || routableBlocked
   const presetSubmitting = agentPresets?.busy === true
   // running 期间 / 触发被压制（只保留 @ 引用），对齐「编辑允许、命令冻结」。
   const guardTier: TriggerGuardTier = inputDisabled ? 'frozen' : (running || claim || presetSubmitting) ? 'claimed' : 'plain'
@@ -281,7 +282,7 @@ export function Composer({
   }
 
   const send = (gesture: ComposerSubmitGesture): void => {
-    if (presetSubmitting) return
+    if (presetSubmitting || submitting) return
     const value = text.trim()
     if (!value) return
     const decision = adjudicate(value)
@@ -1030,7 +1031,7 @@ export function Composer({
                   type="button"
                   className="flex size-7 items-center justify-center rounded-full bg-button-background text-button-foreground hover:bg-button-hover disabled:opacity-40"
                   title={t('common.send')}
-                  disabled={inputDisabled || serviceDisabled || modelSubmitting || presetSubmitting || text.trim().length === 0}
+                  disabled={inputDisabled || submitting || serviceDisabled || modelSubmitting || presetSubmitting || text.trim().length === 0}
                   onClick={() => send('enter')}
                 >
                   <IconSendOutline16 size={15} />

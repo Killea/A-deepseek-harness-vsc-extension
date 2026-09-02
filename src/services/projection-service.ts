@@ -17,7 +17,6 @@
  */
 
 import { EventEmitter } from "node:events";
-import type { ServerRequest } from "../dsh/wire.ts";
 import type {
   ContextBreakdownStatsView,
   ContextPressureStatsView,
@@ -48,13 +47,21 @@ export interface ProjectionsBlock {
   values: Record<string, unknown>;
 }
 
-/** The mux projection frame this service consumes (others are ignored). */
-type ProjectionFrame = {
-  type: "session/projection";
+/** The session/control projection frame this service consumes (others are ignored). */
+type ControlProjectionFrame = {
+  type: "projection";
   sessionId: string;
   key: string;
   value: unknown;
   seq: number;
+};
+
+/** The session/control baseline frame (carries all projection baselines). */
+type ControlBaselineFrame = {
+  type: "baseline";
+  value: {
+    projections: Record<string, { asOfSeq: number; values: Record<string, unknown> }>;
+  };
 };
 
 /** One per-session, per-key value slot: the value plus its write watermark. */
@@ -73,11 +80,24 @@ export class ProjectionService extends EventEmitter {
     }
   }
 
-  /** Route one mux frame: `session/projection` writes under its own seq. */
-  applyFrame(frame: ServerRequest): void {
-    const payload = frame.payload as ProjectionFrame;
-    if (payload.type !== "session/projection") return;
-    this.setIfNewer(payload.sessionId, payload.key, payload.value, payload.seq);
+  /** Route one session/control frame: baseline seeds all sessions; projection writes under its own seq. */
+  applyControlFrame(frame: { payload: unknown }): void {
+    const payload = frame.payload as ControlProjectionFrame | ControlBaselineFrame | { type: string };
+    if (payload.type === "baseline") {
+      const baseline = payload as ControlBaselineFrame;
+      const projections = baseline.value.projections;
+      for (const [sessionId, projection] of Object.entries(projections)) {
+        for (const [key, value] of Object.entries(projection.values)) {
+          this.setIfNewer(sessionId, key, value, projection.asOfSeq);
+        }
+      }
+      return;
+    }
+    if (payload.type === "projection") {
+      const proj = payload as ControlProjectionFrame;
+      this.setIfNewer(proj.sessionId, proj.key, proj.value, proj.seq);
+      return;
+    }
   }
 
   /** The session's current todo list, or null when no value is known (v1 key). */
@@ -92,6 +112,26 @@ export class ProjectionService extends EventEmitter {
     const value = this.slots.get(sessionId)?.get("permissions")?.value;
     if (value === undefined || value === null) return null;
     return value as PermissionSelectView;
+  }
+
+  /** The session's current model selection (modelSelection 投影; dsh 0.1.2+),
+   *  or null when unknown. The projection carries `next` (the active selection)
+   *  and `lastUsed`; we read `next` falling back to `lastUsed`. */
+  modelSelectionOf(
+    sessionId: string,
+  ): { provider: string; model: string; reasoningEffort?: string } | null {
+    const value = this.slots.get(sessionId)?.get("modelSelection")?.value;
+    if (!isRecord(value)) return null;
+    const sel = isRecord(value.next) ? value.next : isRecord(value.lastUsed) ? value.lastUsed : null;
+    if (sel === null) return null;
+    if (typeof sel.provider !== "string" || typeof sel.model !== "string") return null;
+    return {
+      provider: sel.provider,
+      model: sel.model,
+      ...(typeof sel.reasoningEffort === "string"
+        ? { reasoningEffort: sel.reasoningEffort }
+        : {}),
+    };
   }
 
   /**

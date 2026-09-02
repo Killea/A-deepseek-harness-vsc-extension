@@ -311,6 +311,12 @@ export interface WorkspaceView {
   updatedAt: string;
 }
 
+/** Complete reconnect baseline for Workspace browser state (workspace/follow). */
+export interface WorkspaceBaseline {
+  items: WorkspaceView[];
+  archivedSessionIds: string[];
+}
+
 /** Wire projection of a session list row (sessions.schema sessionSummarySchema). */
 export interface SessionSummary {
   sessionId: string;

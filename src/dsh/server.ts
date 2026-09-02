@@ -8,8 +8,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import type { DshLauncher } from "./discovery.ts";
 
-/** The ready line dsh-web-app prints once the server is listening (§3). */
-const URL_LINE_RE = /dsh web: (http:\/\/127\.0\.0\.1:\d+)/u;
+/** The ready line dsh-web-app prints once the server is listening.
+ *  dsh 0.1.2+ prints the URL with `?token=...` for browser-cookie auth;
+ *  older versions print a bare origin. We capture the full URL so the
+ *  extension can exchange the token for a cookie (non-browser clients
+ *  have no browser to do the redirect dance for them). */
+const URL_LINE_RE = /dsh web: (http:\/\/127\.0\.0\.1:\d+[^\s)]*)/u;
 
 /** How long to wait for the ready line before failing boot. */
 const BOOT_TIMEOUT_MS = 60_000;
@@ -34,6 +38,10 @@ export interface DshServerOptions {
 export interface StartedDshServer {
   /** The loopback base URL, e.g. `http://127.0.0.1:38678`. */
   baseUrl: string;
+  /** The full ready URL dsh printed, including `?token=...` when present
+   *  (dsh 0.1.2+). Used by the broker to exchange the launch token for a
+   *  browser-session cookie. Empty string when dsh printed a bare origin. */
+  readyUrl: string;
   /** The bound port parsed from DSH's ready URL. */
   port: number;
   /** Send SIGTERM, wait up to GRACE_MS, then SIGKILL; resolves the exit code. */
@@ -105,9 +113,11 @@ export function startDshWeb(
         if (match?.[1]) {
           settled = true;
           clearTimeout(bootTimer);
-          const baseUrl = match[1];
-          const port = Number(new URL(baseUrl).port);
-          resolve(makeServer(child, baseUrl, port, exited));
+          const readyUrl = match[1];
+          const parsed = new URL(readyUrl);
+          const baseUrl = `${parsed.protocol}//${parsed.host}`;
+          const port = Number(parsed.port);
+          resolve(makeServer(child, baseUrl, readyUrl, port, exited));
           return;
         }
       }
@@ -155,6 +165,7 @@ export function launcherNeedsShell(
 function makeServer(
   child: ChildProcess,
   baseUrl: string,
+  readyUrl: string,
   port: number,
   exited: Promise<number | null>,
 ): StartedDshServer {
@@ -170,6 +181,7 @@ function makeServer(
 
   return {
     baseUrl,
+    readyUrl,
     port,
     child,
     exited,
@@ -205,4 +217,38 @@ function terminateChild(child: ChildProcess, force: boolean): void {
   );
   killer.once("error", () => undefined);
   killer.unref();
+}
+
+/**
+ * Exchange a dsh web launch-token URL for the browser-session cookie a
+ * non-browser client needs to authenticate against the gateway. dsh 0.1.2+
+ * prints `dsh web: http://127.0.0.1:PORT/?token=...`; a GET to that URL
+ * returns 303 with `Set-Cookie`. The cookie is signed by a persistent
+ * secret in `~/.dsh/.credentials.yaml`, so it survives dsh restarts and
+ * only needs to be exchanged once per dsh home.
+ *
+ * @param readyUrl - the full URL dsh printed (including `?token=...`).
+ * @returns the `name=value` cookie string, or `undefined` when the URL
+ *   has no token (old dsh versions without browser auth).
+ */
+export async function exchangeLaunchToken(
+  readyUrl: string,
+): Promise<string | undefined> {
+  const url = new URL(readyUrl);
+  if (!url.searchParams.has("token")) return undefined;
+  const response = await fetch(readyUrl, { redirect: "manual" });
+  if (response.status !== 303) {
+    throw new Error(
+      `dsh web 令牌交换失败: HTTP ${response.status} (expected 303)`,
+    );
+  }
+  const setCookie = response.headers.get("set-cookie");
+  if (setCookie === null) {
+    throw new Error("dsh web 令牌交换失败: 响应未包含 Set-Cookie");
+  }
+  const cookie = setCookie.split(";", 1)[0];
+  if (cookie === undefined || cookie === "") {
+    throw new Error("dsh web 令牌交换失败: Set-Cookie 为空");
+  }
+  return cookie;
 }

@@ -20,6 +20,8 @@ export type BrokerReply =
       pid: number | null;
       managed: boolean;
       reportedVersion: string;
+      /** Browser-session cookie for gateway auth (dsh 0.1.2+); undefined for old dsh. */
+      cookie?: string;
     }
   | {
       protocol: typeof BROKER_PROTOCOL_VERSION;
@@ -36,5 +38,7 @@ export interface BrokerMetadata {
   port: number;
   managed: boolean;
   reportedVersion: string;
+  /** Browser-session cookie for gateway auth (dsh 0.1.2+); undefined for old dsh. */
+  cookie?: string;
   startedAt: string;
 }

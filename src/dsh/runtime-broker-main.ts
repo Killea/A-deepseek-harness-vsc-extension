@@ -16,7 +16,11 @@ import {
   type BrokerMetadata,
   type BrokerReply,
 } from "./runtime-broker-protocol.ts";
-import { startDshWeb, type StartedDshServer } from "./server.ts";
+import {
+  exchangeLaunchToken,
+  startDshWeb,
+  type StartedDshServer,
+} from "./server.ts";
 
 const socketPath = requiredArgument(process.argv[2]);
 const metadataPath = requiredArgument(process.argv[3]);
@@ -26,6 +30,8 @@ interface RuntimeState {
   port: number;
   server: StartedDshServer | null;
   reportedVersion: string;
+  /** Browser-session cookie for gateway auth (dsh 0.1.2+). */
+  cookie?: string;
 }
 
 class RuntimeBrokerError extends Error {
@@ -127,6 +133,7 @@ async function handleAcquire(socket: Socket, raw: string): Promise<void> {
       pid: ready.server?.child.pid ?? null,
       managed: ready.server !== null,
       reportedVersion: ready.reportedVersion,
+      ...(ready.cookie === undefined ? {} : { cookie: ready.cookie }),
     });
   } catch (error) {
     send(socket, {
@@ -165,7 +172,7 @@ async function bootRuntime(
       baseUrl,
       port,
       server: null,
-      reportedVersion: existing.description.version,
+      reportedVersion: launcher?.version ?? "unknown",
     };
     await publishMetadata(state);
     return state;
@@ -194,7 +201,7 @@ async function bootRuntime(
         baseUrl,
         port,
         server: null,
-        reportedVersion: winner.description.version,
+        reportedVersion: launcher?.version ?? "unknown",
       };
       await publishMetadata(state);
       return state;
@@ -208,7 +215,22 @@ async function bootRuntime(
     throw error;
   }
 
-  const verified = await probeDsh(baseUrl, 5_000);
+  // Exchange the launch token for a browser-session cookie (dsh 0.1.2+).
+  // Old dsh versions print a bare URL without `?token=...`; exchangeLaunchToken
+  // returns undefined and the gateway has no browser auth to satisfy.
+  let cookie: string | undefined;
+  try {
+    cookie = await exchangeLaunchToken(server.readyUrl);
+  } catch (error) {
+    await server.stop();
+    throw new Error(
+      `DSH 令牌交换失败: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  // Probe with the cookie so the WebSocket upgrade passes the gateway's
+  // browser-auth fence (dsh 0.1.2+). Old dsh has no auth; cookie is undefined.
+  const verified = await probeDsh(baseUrl, 5_000, cookie);
   if (verified.kind !== "dsh") {
     await server.stop();
     throw new Error(`已启动进程但 DSH 握手失败：${verified.reason}`);
@@ -217,7 +239,8 @@ async function bootRuntime(
     baseUrl,
     port,
     server,
-    reportedVersion: verified.description.version,
+    reportedVersion: launcher?.version ?? "unknown",
+    ...(cookie === undefined ? {} : { cookie }),
   };
   await publishMetadata(state);
   void server.exited.then(() => {
@@ -235,6 +258,7 @@ async function publishMetadata(state: RuntimeState): Promise<void> {
     port: state.port,
     managed: state.server !== null,
     reportedVersion: state.reportedVersion,
+    ...(state.cookie === undefined ? {} : { cookie: state.cookie }),
     startedAt: new Date().toISOString(),
   };
   await mkdir(dirname(metadataPath), { recursive: true });

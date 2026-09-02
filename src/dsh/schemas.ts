@@ -1,10 +1,16 @@
 /**
- * 契约跟随 (D11.2): load the wire schemas at runtime from the user's own dsh
- * installation (`@deepseek-ai/dsh-host-apiproxy`), never from the plugin's
- * bundled deps — the wire contract always matches the running server. The
- * anchor is resolved from the discovered launcher's real path; when it cannot
- * be located (e.g. npx shim, exotic install), validation degrades to the
- * structural checks in wire.ts (envelope type + rpcId echo).
+ * Contract following: load the wire schemas at runtime from the user's own dsh
+ * installation, never from the plugin's bundled deps — the wire contract
+ * always matches the running server. The anchor is resolved from the
+ * discovered launcher's real path; when it cannot be located (e.g. npx shim,
+ * exotic install), validation degrades to the structural checks in wire.ts
+ * (envelope type + rpcId echo).
+ *
+ * dsh 0.1.2+ exposes:
+ *   - `@deepseek-ai/dsh-client-connection` — Connection RPC envelope schemas
+ *     (`clientRequestSchema`, `serverResponseSchema`).
+ *   - `@deepseek-ai/dsh-api-gateway` — Remote stream protocol parsers
+ *     (`parseRemoteStreamServerMessage`).
  */
 
 import { createRequire } from "node:module";
@@ -15,11 +21,27 @@ import type { EnvelopeValidator } from "./wire.ts";
 import type { DshLauncher } from "./discovery.ts";
 
 interface SchemaModules {
-  rpcSchema?: { serverResponseSchema?: unknown; serverRequestSchema?: unknown };
-  eventsSchema?: { muxFrameSchema?: unknown; hostFrameSchema?: unknown };
+  rpcSchema?: {
+    serverResponseSchema?: unknown;
+    clientRequestSchema?: unknown;
+  };
+  streamProtocol?: {
+    parseRemoteStreamServerMessage?: (text: string) => unknown;
+  };
 }
 
-/** A validator that runs zod schemas loaded from the user's dsh tree. */
+/** Narrow a dynamic-import record into a SchemaModules streamProtocol entry. */
+function asStreamProtocol(
+  mod: Record<string, unknown> | undefined,
+): SchemaModules["streamProtocol"] {
+  if (mod === undefined) return undefined;
+  const fn = mod.parseRemoteStreamServerMessage;
+  return typeof fn === "function"
+    ? { parseRemoteStreamServerMessage: fn as (text: string) => unknown }
+    : undefined;
+}
+
+/** A validator that runs zod schemas / parsers loaded from the user's dsh tree. */
 export class RuntimeSchemaValidator implements EnvelopeValidator {
   private readonly modules: SchemaModules;
 
@@ -38,13 +60,25 @@ export class RuntimeSchemaValidator implements EnvelopeValidator {
   }
 
   validateServerRequest(value: unknown): boolean {
-    const schema = this.modules.rpcSchema?.serverRequestSchema;
-    return (
-      schema === undefined ||
-      (schema as { safeParse(v: unknown): { success: boolean } }).safeParse(
-        value,
-      ).success
-    );
+    // The new protocol has no server-request envelopes; RPC is request/response
+    // over HTTP and streams are multiplexed WebSocket frames. Kept for
+    // interface compatibility; always passes.
+    void value;
+    return true;
+  }
+
+  validateStreamFrame(value: unknown): boolean {
+    const parser = this.modules.streamProtocol?.parseRemoteStreamServerMessage;
+    if (parser === undefined) return true;
+    try {
+      // The parser accepts a string; if we already have an object, re-serialize.
+      const text =
+        typeof value === "string" ? value : JSON.stringify(value);
+      parser(text);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -92,17 +126,21 @@ async function loadSchemaModules(
   const tryRequire = (): SchemaModules | null => {
     try {
       const require = createRequire(join(installRoot, "package.json"));
-      const rpcSchema = require("@deepseek-ai/dsh-host-apiproxy/api/rpc.schema");
-      const eventsSchema = require("@deepseek-ai/dsh-host-apiproxy/api/events.schema");
+      const rpcSchema = require("@deepseek-ai/dsh-client-connection/rpc-schema");
+      let streamProtocol: Record<string, unknown> | undefined;
+      try {
+        streamProtocol = require("@deepseek-ai/dsh-api-gateway/stream-protocol");
+      } catch {
+        // stream-protocol is optional; structural validation covers frames.
+      }
       return {
         rpcSchema: {
           serverResponseSchema: rpcSchema.serverResponseSchema,
-          serverRequestSchema: rpcSchema.serverRequestSchema,
+          clientRequestSchema: rpcSchema.clientRequestSchema,
         },
-        eventsSchema: {
-          muxFrameSchema: eventsSchema.muxFrameSchema,
-          hostFrameSchema: eventsSchema.hostFrameSchema,
-        },
+        ...(streamProtocol === undefined
+          ? {}
+          : { streamProtocol: asStreamProtocol(streamProtocol) }),
       };
     } catch {
       return null;
@@ -114,23 +152,32 @@ async function loadSchemaModules(
   // ESM fallback: resolve the subpath to a file URL, then dynamic import.
   try {
     const require = createRequire(join(installRoot, "package.json"));
-    const rpcPath =
-      require.resolve("@deepseek-ai/dsh-host-apiproxy/api/rpc.schema");
-    const eventsPath =
-      require.resolve("@deepseek-ai/dsh-host-apiproxy/api/events.schema");
-    const [rpcSchema, eventsSchema] = (await Promise.all([
+    const rpcPath = require.resolve(
+      "@deepseek-ai/dsh-client-connection/rpc-schema",
+    );
+    const [rpcSchema] = (await Promise.all([
       import(pathToFileURL(rpcPath).href),
-      import(pathToFileURL(eventsPath).href),
-    ])) as [Record<string, unknown>, Record<string, unknown>];
+    ])) as [Record<string, unknown>];
+    let streamProtocol: Record<string, unknown> | undefined;
+    try {
+      const streamPath = require.resolve(
+        "@deepseek-ai/dsh-api-gateway/stream-protocol",
+      );
+      streamProtocol = (await import(pathToFileURL(streamPath).href)) as Record<
+        string,
+        unknown
+      >;
+    } catch {
+      // optional
+    }
     return {
       rpcSchema: {
         serverResponseSchema: rpcSchema.serverResponseSchema,
-        serverRequestSchema: rpcSchema.serverRequestSchema,
+        clientRequestSchema: rpcSchema.clientRequestSchema,
       },
-      eventsSchema: {
-        muxFrameSchema: eventsSchema.muxFrameSchema,
-        hostFrameSchema: eventsSchema.hostFrameSchema,
-      },
+      ...(streamProtocol === undefined
+        ? {}
+        : { streamProtocol: asStreamProtocol(streamProtocol) }),
     };
   } catch {
     return null;

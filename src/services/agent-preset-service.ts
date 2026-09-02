@@ -91,7 +91,7 @@ export class AgentPresetService {
   private async read(epoch: number): Promise<AgentPresetEntryView[]> {
     try {
       const value = await this.requireClient().call<AgentPresetListValue>(
-        "agentPreset.list",
+        "agentPresets/list",
         {},
       );
       if (epoch === this.epoch) {
@@ -193,8 +193,8 @@ export class AgentPresetService {
     this.errors.delete(key);
     try {
       const value = await this.requireClient().call<{ agentPreset: string }>(
-        "agentPreset.select",
-        { sessionId: targetSessionId, agentPreset: staged },
+        "agentPresets/select",
+        { agentId: targetSessionId, agentPreset: staged },
       );
       if (this.stages.get(key) === staged) this.stages.delete(key);
       return value.agentPreset;

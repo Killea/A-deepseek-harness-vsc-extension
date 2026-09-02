@@ -61,7 +61,9 @@ export interface ConfigurableProviderView {
   displayName: string;
   settingsNs: string;
   settingsPath: string[];
-  active: boolean;
+  /** dsh 0.1.2+: renamed from `active`; true when the provider is declared
+   *  in the settings document. Older dsh versions used `active`. */
+  active?: boolean;
   declared?: boolean;
 }
 
@@ -311,25 +313,27 @@ export class SettingsService {
     let describe: SettingsDescribeResult;
     try {
       const [providersResult, describeResult] = await Promise.all([
-        client.call<{ providers: ConfigurableProviderView[] }>(
-          "llm.providers",
+        client.call<ConfigurableProviderView[]>(
+          "llm/listConfigurableProviders",
           {},
         ),
-        client.call<SettingsDescribeResult>("settings.describe", {}),
+        client.call<SettingsDescribeResult>("settings/describe", {}),
       ]);
-      providers = providersResult.providers;
+      // dsh 0.1.2+: llm/listConfigurableProviders returns a bare array
+      // (not { providers: [...] }).
+      providers = Array.isArray(providersResult) ? providersResult : [];
       describe = describeResult;
+      this.onLog?.(
+        `[settings] loadPanel: providers=${providers.length} namespaces=${describe.namespaces.length} writable=${describe.writable} hasDocument=${describe.hasDocument}`,
+      );
     } catch (error) {
       throw new Error(`设置读取失败: ${messageOf(error)}`);
     }
 
-    // host.describe 为 dsh 包页的 enrich：失败不拖垮整页（该页仍显示可执行文件/settings.yaml）。
-    let host: HostDescribeView | undefined;
-    try {
-      host = await client.call<HostDescribeView>("host.describe", {});
-    } catch (error) {
-      this.onLog(`[settings] host.describe 失败: ${messageOf(error)}`);
-    }
+    // host.describe RPC is gone in dsh 0.1.2+; host facts ride the $events
+    // ready frame (owned by DshService). The settings panel's host enrich is
+    // now sourced from DshService.homeValue, injected by the caller.
+    const host: HostDescribeView | undefined = undefined;
 
     const namespaces = new Map(
       describe.namespaces.map((view) => [view.ns, view]),
@@ -397,7 +401,7 @@ export class SettingsService {
         displayName: entry.displayName,
         settingsNs: entry.settingsNs,
         settingsPath: entry.settingsPath,
-        active: entry.active,
+        active: entry.active ?? entry.declared ?? false,
         ...(entry.declared === true ? { declared: true } : {}),
         configured,
         removable,
@@ -419,7 +423,7 @@ export class SettingsService {
       try {
         const result = await client.call<{
           credentials: Record<string, CredentialView>;
-        }>("credentials.describe", { refs });
+        }>("credentials/describe", { refs });
         Object.assign(credentials, result.credentials);
       } catch (error) {
         this.onLog(`[settings] credentials.describe 失败: ${messageOf(error)}`);
@@ -481,7 +485,7 @@ export class SettingsService {
       : pathOps(profile.settingsPath, profile.before, profile.after);
     if (ops.length > 0) {
       try {
-        await client.call("settings.mutate", {
+        await client.call("settings/mutate", {
           ns: profile.ns,
           ops,
           expectedRevision: profile.expectedRevision,
@@ -499,7 +503,7 @@ export class SettingsService {
     }
     if (profile.keyValue.length > 0) {
       try {
-        await client.call("credentials.set", {
+        await client.call("credentials/set", {
           ref: profile.keyRef,
           value: profile.keyValue,
         });
@@ -518,13 +522,13 @@ export class SettingsService {
     const client = this.requireClient();
     if (target.credentialRef !== undefined) {
       try {
-        await client.call("credentials.unset", { ref: target.credentialRef });
+        await client.call("credentials/unset", { ref: target.credentialRef });
       } catch (error) {
         return { ok: false, text: `凭据删除失败: ${messageOf(error)}` };
       }
     }
     try {
-      await client.call("settings.mutate", {
+      await client.call("settings/mutate", {
         ns: target.settingsNs,
         ops: [{ op: "unset", path: [...target.settingsPath] }],
       });
@@ -552,7 +556,7 @@ export class SettingsService {
       models: create.models.map((model) => ({ ...model })),
     };
     try {
-      await client.call("settings.mutate", {
+      await client.call("settings/mutate", {
         ns: "llm-pi-ai",
         ops: [{ op: "set", path: ["providers", create.route], value: profile }],
         expectedRevision: create.expectedRevision,
@@ -569,7 +573,7 @@ export class SettingsService {
     }
     if (storesKey) {
       try {
-        await client.call("credentials.set", {
+        await client.call("credentials/set", {
           ref: keyRef,
           value: create.keyValue,
         });
@@ -584,8 +588,16 @@ export class SettingsService {
   async discoverModels(probe: SettingsProbe): Promise<DiscoveredModelView[]> {
     const client = this.requireClient();
     const result = await client.call<{ models: DiscoveredModelView[] }>(
-      "llm.discoverModels",
-      probe,
+      "llm/discoverModels",
+      {
+        settingsNs: probe.settingsNs,
+        request: {
+          ...(probe.provider === undefined ? {} : { provider: probe.provider }),
+          ...(probe.baseURL === undefined ? {} : { baseURL: probe.baseURL }),
+          ...(probe.api === undefined ? {} : { api: probe.api }),
+          ...(probe.apiKey === undefined ? {} : { apiKey: probe.apiKey }),
+        },
+      },
     );
     return result.models;
   }
@@ -597,7 +609,7 @@ export class SettingsService {
   ): Promise<SettingsWriteResult> {
     const client = this.requireClient();
     try {
-      await client.call("settings.mutate", {
+      await client.call("settings/mutate", {
         ns: "permission",
         ops: [{ op: "set", path: ["defaultPreset"], value: preset }],
         expectedRevision,
@@ -622,7 +634,7 @@ export class SettingsService {
   ): Promise<SettingsWriteResult> {
     const client = this.requireClient();
     try {
-      await client.call("settings.mutate", {
+      await client.call("settings/mutate", {
         ns: CONVERSATION_SETTINGS_NAMESPACE,
         ops: [{ op: "set", path: [BUSY_ENTER_FIELD], value: behavior }],
         expectedRevision,
@@ -646,7 +658,7 @@ export class SettingsService {
       const client = this.wire();
       if (!client) return DEFAULT_BUSY_ENTER_BEHAVIOR;
       const describe = await client.call<SettingsDescribeResult>(
-        "settings.describe",
+        "settings/describe",
         {},
       );
       const ns = describe.namespaces.find(

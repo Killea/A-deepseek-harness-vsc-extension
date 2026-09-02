@@ -25,6 +25,8 @@ export interface RuntimeBrokerLease {
   pid: number | null;
   managed: boolean;
   reportedVersion: string;
+  /** Browser-session cookie for gateway auth (dsh 0.1.2+). */
+  cookie?: string;
   dispose(): void;
 }
 
@@ -200,6 +202,7 @@ async function connectAndAcquire(
     pid: reply.pid,
     managed: reply.managed,
     reportedVersion: reply.reportedVersion,
+    ...(reply.cookie === undefined ? {} : { cookie: reply.cookie }),
     dispose: () => socket.end(),
   };
 }

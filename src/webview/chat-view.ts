@@ -25,7 +25,10 @@ import type {
   WebviewToExtensionMessage,
 } from "../shared/protocol.ts";
 import type { SessionService } from "../services/session-service.ts";
-import type { ConversationService } from "../services/conversation-service.ts";
+import type {
+  ConversationService,
+  FollowSnapshot,
+} from "../services/conversation-service.ts";
 import type { ProjectionService } from "../services/projection-service.ts";
 import type {
   AtRefService,
@@ -121,6 +124,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly pickDshPath: () => Promise<void>,
     private readonly restartDsh: () => Promise<void>,
     private readonly extensionUri: vscode.Uri,
+    private readonly openSessionFollow: (
+      sessionId: string,
+      onSnapshot: (snapshot: unknown) => void,
+    ) => () => void,
   ) {
     // Streaming/replay updates: push a fresh snapshot whenever the selected
     // session's fold changes (chunk deltas, turn boundaries, replay resync).
@@ -143,6 +150,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (sessionId !== this.selectedSessionId) return;
       if (key === "todos") this.postTodos(sessionId);
       else if (key === "permissions") this.postPermissions(sessionId);
+      else if (key === "modelSelection") this.refreshModels(sessionId);
       else if ((USAGE_STATS_KEYS as readonly string[]).includes(key))
         this.postStats(sessionId);
     });
@@ -1030,16 +1038,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: "activeFile", file: view });
   }
 
-  /** Replay the session's history into the conversation fold and push it. */
+  /** Open the session/follow stream, apply its snapshot to the fold, and push it. */
   private async loadConversation(sessionId: string): Promise<void> {
     try {
-      const snapshot = await this.conversations.attach(sessionId);
-      if (this._selectedSessionId !== sessionId) return; // user switched away meanwhile
-      this.post({ type: "conversation", sessionId, snapshot });
-      // M4b: attach 已同步 seed 投影 store（决策 9 回调），补发 todo 计划条、权限席位与用量统计快照。
-      this.postTodos(sessionId);
-      this.postPermissions(sessionId);
-      this.postStats(sessionId);
+      // Open the session/follow stream; the snapshot item seeds the fold and
+      // projection store. Live events arrive as synthesized mux frames.
+      this.openSessionFollow(sessionId, (snapshot) => {
+        if (this._selectedSessionId !== sessionId) return; // user switched away
+        const folded = this.conversations.applySnapshot(
+          sessionId,
+          snapshot as FollowSnapshot,
+        );
+        this.post({ type: "conversation", sessionId, snapshot: folded });
+        // M4b: snapshot 已同步 seed 投影 store，补发 todo 计划条、权限席位与用量统计快照。
+        this.postTodos(sessionId);
+        this.postPermissions(sessionId);
+        this.postStats(sessionId);
+        // dsh 0.1.2+: modelSelection projection seeds the model seat.
+        void this.refreshModels(sessionId);
+      });
     } catch (error) {
       this.post({ type: "notice", text: String(error) });
     }
@@ -1362,7 +1379,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  /** M3b+: 刷新模型目录（/model 弹层 + 输入框下方席位共享）；失败上送带 error 的空视图。 */
+  /** M3b+: 刷新模型目录（/model 弹层 + 输入框下方席位共享）；失败上送带 error 的空视图。
+   *  dsh 0.1.2+: modelCatalog is global; the session's actual model selection
+   *  comes from the session/follow snapshot's `modelSelection` projection,
+   *  which overrides the catalog's `default` as `current`. */
   private async refreshModels(
     sessionId: string,
     requestId = 0,
@@ -1370,6 +1390,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   ): Promise<void> {
     try {
       const models = await this.commands.models(sessionId);
+      // Override `current` with the session's actual model selection from
+      // the projection store (seeded by session/follow snapshot).
+      const sessionModel = this.projections.modelSelectionOf(sessionId);
+      if (sessionModel !== null) {
+        models.current = sessionModel;
+      }
       this.post({
         type: "models",
         sessionId: responseSessionId,
@@ -1437,19 +1463,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     answer: Parameters<PendingInteractionService["answer"]>[2],
   ): Promise<void> {
     try {
-      const receipt = await this.pendingInteractions.answer(
-        sessionId,
-        key,
-        answer,
-      );
-      if (!receipt.accepted) {
-        this.post({
-          type: "pendingError",
-          sessionId,
-          key,
-          text: this.i18n.t("host.answerNotAccepted", { reason: receipt.reason }),
-        });
-      }
+      await this.pendingInteractions.answer(sessionId, key, answer);
     } catch (error) {
       this.post({ type: "pendingError", sessionId, key, text: String(error) });
     }
@@ -1461,15 +1475,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     key: string,
   ): Promise<void> {
     try {
-      const receipt = await this.pendingInteractions.cancel(sessionId, key);
-      if (!receipt.accepted) {
-        this.post({
-          type: "pendingError",
-          sessionId,
-          key,
-          text: this.i18n.t("host.cancelNotAccepted", { reason: receipt.reason }),
-        });
-      }
+      await this.pendingInteractions.cancel(sessionId, key);
     } catch (error) {
       this.post({ type: "pendingError", sessionId, key, text: String(error) });
     }

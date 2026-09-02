@@ -1,21 +1,24 @@
 /**
- * DSH endpoint recognition. A usable endpoint must complete the DSH-specific
- * host.describe RPC and accept both downlink WebSockets. The reported app
- * version is diagnostic only until DSH exposes a trustworthy compatibility
- * version; it must never reject a connection here.
+ * DSH endpoint recognition. A usable endpoint accepts the multiplexed
+ * `/api/remote.mux` WebSocket and delivers the `$events` logical stream's
+ * opening `ready` item, which carries the Host home path used for display.
+ * There is no `host.describe` RPC in dsh 0.1.2+; the ready frame is the
+ * generation source and the sole Host-facts carrier.
  */
 
 import { connect } from "node:net";
 import { WebSocket } from "ws";
-import { WireClient } from "./wire.ts";
+import {
+  RemoteStreamMux,
+  REMOTE_EVENT_STREAM_ENDPOINT,
+  REMOTE_EVENT_STREAM_PAYLOAD,
+  type RemoteStreamFailure,
+} from "./wire.ts";
 
+/** Host facts published by the `$events` ready frame. */
 export interface DshHostDescription {
-  version: string;
-  cwd: string;
-  provider?: string;
-  model?: string;
-  attachedSessions: number;
-  canOpenPath: boolean;
+  /** Host account home used to abbreviate displayed filesystem paths. */
+  home: string;
 }
 
 export type DshProbeResult =
@@ -54,41 +57,24 @@ export function assertPort(port: number): void {
 }
 
 /**
- * Recognize a live DSH instance. Version is deliberately recorded but not
- * compared: released DSH currently reports a placeholder from host.describe.
+ * Recognize a live DSH instance by opening `/api/remote.mux` and the
+ * `$events` logical stream, then awaiting the `ready` item.
  */
 export async function probeDsh(
   baseUrlInput: string,
   timeoutMs = 3_000,
+  cookie?: string,
 ): Promise<DshProbeResult> {
   const baseUrl = normalizeDshBaseUrl(baseUrlInput);
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs);
-  const sockets: WebSocket[] = [];
   try {
-    const client = new WireClient(baseUrl);
-    const descriptionPromise = client.call<unknown>(
-      "host.describe",
-      {},
-      abort.signal,
-    );
-    const wsBase = baseUrl
-      .replace(/^http:/u, "ws:")
-      .replace(/^https:/u, "wss:");
-    const mux = new WebSocket(`${wsBase}/api/events.mux`);
-    const host = new WebSocket(`${wsBase}/api/events.host`);
-    sockets.push(mux, host);
-    const [, , value] = await Promise.all([
-      waitForOpen(mux, abort.signal),
-      waitForOpen(host, abort.signal),
-      descriptionPromise,
-    ]);
-    const description = parseDshHostDescription(value);
+    const description = await probeEvents(baseUrl, abort.signal, cookie);
     if (!description) {
       return {
         kind: "not-dsh",
         baseUrl,
-        reason: "host.describe 响应结构不符合 DSH 契约",
+        reason: "$events ready 帧结构不符合 DSH 契约",
       };
     }
     return { kind: "dsh", baseUrl, description };
@@ -100,11 +86,88 @@ export async function probeDsh(
     };
   } finally {
     clearTimeout(timer);
-    for (const socket of sockets) {
-      socket.on("error", () => undefined);
-      socket.terminate();
-    }
   }
+}
+
+/**
+ * Open `/api/remote.mux` + `$events` and await the `ready` item. Resolves
+ * with the Host home, or null when the ready item is malformed.
+ */
+async function probeEvents(
+  baseUrl: string,
+  signal: AbortSignal,
+  cookie?: string,
+): Promise<DshHostDescription | null> {
+  const wsBase = baseUrl.replace(/^http:/u, "ws:").replace(/^https:/u, "wss:");
+  const mux = new RemoteStreamMux(
+    {
+      url: `${wsBase}/api/remote.mux`,
+      ...(cookie === undefined ? {} : { cookie }),
+    },
+    WebSocket,
+  );
+  const ready = new Promise<DshHostDescription | null>((resolve, reject) => {
+    const onAbort = (): void => {
+      cleanup();
+      reject(new Error("DSH 探测超时"));
+    };
+    const onOpen = (): void => {
+      // Physical socket open; the $events stream open is sent by openStream.
+    };
+    const onError = (error: Error): void => {
+      cleanup();
+      reject(new Error(`DSH WebSocket 握手失败: ${error.message}`));
+    };
+    const onClose = (): void => {
+      cleanup();
+      reject(new Error("DSH WebSocket 在就绪前关闭"));
+    };
+    const cleanup = (): void => {
+      signal.removeEventListener("abort", onAbort);
+      mux.off("open", onOpen);
+      mux.off("error", onError);
+      mux.off("close", onClose);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    mux.once("open", onOpen);
+    mux.once("error", onError);
+    mux.once("close", onClose);
+    // Open the $events logical stream; the first item is the ready frame.
+    mux.openStream(REMOTE_EVENT_STREAM_ENDPOINT, REMOTE_EVENT_STREAM_PAYLOAD, {
+      onItem: (value) => {
+        cleanup();
+        const ready = parseReadyFrame(value);
+        resolve(ready);
+      },
+      onEnd: () => {
+        cleanup();
+        reject(new Error("$events 流在 ready 前结束"));
+      },
+      onError: (failure: RemoteStreamFailure) => {
+        cleanup();
+        reject(new Error(`$events 流错误: ${failure.message}`));
+      },
+    });
+  });
+  mux.start();
+  try {
+    return await ready;
+  } finally {
+    mux.stop();
+  }
+}
+
+/**
+ * Parse the `$events` ready item: `{ type:'ready', clientId, host:{ home } }`.
+ * Returns null when the structure does not match.
+ */
+function parseReadyFrame(value: unknown): DshHostDescription | null {
+  if (value === null || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  if (row.type !== "ready") return null;
+  const host = row.host as Record<string, unknown> | undefined;
+  if (!host || typeof host.home !== "string") return null;
+  return { home: host.home };
 }
 
 /** True when something accepts TCP connections at this host/port. */
@@ -128,55 +191,4 @@ export async function isTcpPortOccupied(
     socket.once("connect", () => finish(true));
     socket.once("error", () => finish(false));
   });
-}
-
-function waitForOpen(socket: WebSocket, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const cleanup = (): void => {
-      signal.removeEventListener("abort", onAbort);
-      socket.removeEventListener("open", onOpen);
-      socket.removeEventListener("error", onError);
-    };
-    const onOpen = (): void => {
-      cleanup();
-      resolve();
-    };
-    const onError = (): void => {
-      cleanup();
-      reject(new Error("DSH WebSocket 握手失败"));
-    };
-    const onAbort = (): void => {
-      cleanup();
-      reject(new Error("DSH 探测超时"));
-    };
-    signal.addEventListener("abort", onAbort, { once: true });
-    socket.addEventListener("open", onOpen, { once: true });
-    socket.addEventListener("error", onError, { once: true });
-  });
-}
-
-export function parseDshHostDescription(
-  value: unknown,
-): DshHostDescription | null {
-  if (value === null || typeof value !== "object") return null;
-  const row = value as Record<string, unknown>;
-  if (
-    typeof row.version !== "string" ||
-    typeof row.cwd !== "string" ||
-    typeof row.attachedSessions !== "number" ||
-    !Number.isInteger(row.attachedSessions) ||
-    row.attachedSessions < 0 ||
-    typeof row.canOpenPath !== "boolean" ||
-    (row.provider !== undefined && typeof row.provider !== "string") ||
-    (row.model !== undefined && typeof row.model !== "string")
-  )
-    return null;
-  return {
-    version: row.version,
-    cwd: row.cwd,
-    attachedSessions: row.attachedSessions,
-    canOpenPath: row.canOpenPath,
-    ...(typeof row.provider === "string" ? { provider: row.provider } : {}),
-    ...(typeof row.model === "string" ? { model: row.model } : {}),
-  };
 }

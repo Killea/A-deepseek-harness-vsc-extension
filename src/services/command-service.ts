@@ -66,8 +66,10 @@ interface RawModelFailure {
 }
 
 interface RawSessionModels {
-  current: { provider: string; model: string; reasoningEffort?: string } | null;
-  routable: boolean | null;
+  /** dsh 0.1.2+: system default model (not per-session current). */
+  default: { provider: string; model: string; reasoningEffort?: string } | null;
+  /** dsh 0.1.2+: providers that have a serving adapter. */
+  routableProviders?: readonly string[];
   groups: RawModelGroup[];
   failures?: RawModelFailure[];
 }
@@ -85,8 +87,12 @@ export class CommandService {
   /**
    * @param wire - lazy accessor for the live wire client；每次调用现取，
    *   保证 dsh 重启前后服务都可用。
+   * @param onLog - optional diagnostic logger.
    */
-  constructor(private readonly wire: () => WireClient | null) {}
+  constructor(
+    private readonly wire: () => WireClient | null,
+    private readonly onLog?: (line: string) => void,
+  ) {}
 
   private requireClient(): WireClient {
     const client = this.wire();
@@ -104,9 +110,7 @@ export class CommandService {
     if (this.available !== null) return this.available;
     const client = this.requireClient();
     try {
-      await client.call<unknown>("commands/list", {
-        args: { agentId: sessionId },
-      });
+      await client.call<unknown>("commands/list", { agentId: sessionId });
       this.available = true;
     } catch (error) {
       this.available = error instanceof DshRpcError;
@@ -144,9 +148,7 @@ export class CommandService {
     const client = this.requireClient();
     const value = await client.call<RawCommandExecution | undefined>(
       "commands/execute",
-      {
-        args: { agentId: sessionId, line, images },
-      },
+      { agentId: sessionId, line, images },
     );
     if (!value) return null;
     return {
@@ -156,24 +158,36 @@ export class CommandService {
     };
   }
 
-  /** session.models 投影（/model 弹出层 + 输入框下方席位共享的目录快照）。 */
-  async models(sessionId: string): Promise<SessionModelsView> {
+  /** session/modelCatalog 投影（/model 弹出层 + 输入框下方席位共享的目录快照）。
+   *  dsh 0.1.2+: modelCatalog is global (not per-session); `default` is the
+   *  system default, and `routableProviders` lists providers with a serving
+   *  adapter. The session's actual model selection arrives via the
+   *  session/follow snapshot's `modelSelection` projection; this method
+   *  returns the catalog with the system default as `current` when no
+   *  session-specific override is known. */
+  async models(_sessionId: string): Promise<SessionModelsView> {
     const client = this.requireClient();
-    const raw = await client.call<RawSessionModels>("session.models", {
-      sessionId,
-    });
+    const raw = await client.call<RawSessionModels>("session/modelCatalog", {});
+    this.onLog?.(
+      `[modelCatalog] default=${JSON.stringify(raw.default)} routableProviders=${JSON.stringify(raw.routableProviders)} groups=${raw.groups.length} failures=${raw.failures?.length ?? 0}`,
+    );
+    const defaultModel = raw.default;
+    const routableProviders = raw.routableProviders ?? [];
     return {
       current:
-        raw.current === null
+        defaultModel === null
           ? null
           : {
-              provider: raw.current.provider,
-              model: raw.current.model,
-              ...(raw.current.reasoningEffort === undefined
+              provider: defaultModel.provider,
+              model: defaultModel.model,
+              ...(defaultModel.reasoningEffort === undefined
                 ? {}
-                : { reasoningEffort: raw.current.reasoningEffort }),
+                : { reasoningEffort: defaultModel.reasoningEffort }),
             },
-      routable: raw.routable ?? null,
+      routable:
+        defaultModel === null
+          ? null
+          : routableProviders.includes(defaultModel.provider),
       groups: raw.groups.map((g) => ({
         id: g.id,
         name: g.name,
@@ -204,7 +218,7 @@ export class CommandService {
     };
   }
 
-  /** session.selectModel（/model 选中 / 席位切换；effort 缺席 = 回落模型默认）。 */
+  /** session/selectModel（/model 选中 / 席位切换；effort 缺席 = 回落模型默认）。 */
   async selectModel(
     sessionId: string,
     provider: string,
@@ -212,18 +226,20 @@ export class CommandService {
     effort?: string,
   ): Promise<void> {
     const client = this.requireClient();
-    await client.call<{ selected: unknown }>("session.selectModel", {
-      sessionId,
-      provider,
-      model,
-      ...(effort === undefined ? {} : { reasoningEffort: effort }),
+    await client.call<{ selected: unknown }>("session/selectModel", {
+      request: {
+        sessionId,
+        provider,
+        model,
+        ...(effort === undefined ? {} : { reasoningEffort: effort }),
+      },
     });
   }
 
   private async pull(sessionId: string): Promise<CommandDescriptorView[]> {
     const client = this.requireClient();
     const raw = await client.call<RawCommandDescriptor[]>("commands/list", {
-      args: { agentId: sessionId },
+      agentId: sessionId,
     });
     const items = raw.map((c) => ({
       name: c.name,

@@ -1,7 +1,7 @@
 /**
  * dsh-on-vsc extension entry (M1 骨架 + M2 协议验证 + M3 @ 文件选择 + M3b @ 与 / 命令, §10):
  *   - global dsh discovery/Broker + fixed managed port + external URL mode
- *   - wire client (workspace.list / session.create / session.prompt / session.cancel / session.history)
+ *   - wire client (workspace/follow / session/list / session/create / session/prompt / session/cancel / session/page)
  *   - WebviewView: session list + streaming chat (mux events folded into the
  *     conversation surface; history replay on select; cancel interruption)
  *   - M3b: composer '@' 两级菜单（文件 + 问题引用，候选扩展侧枚举）与 '/' 指令
@@ -74,12 +74,15 @@ export function activate(context: vscode.ExtensionContext): void {
     (sessionId, block) => projections.seed(sessionId, block),
   );
 
-  // M4: pending 交互闭环（审批 / ask-user / plan-review）——帧→列表、应答/取消走
-  // /api/respond（rpcId 留在扩展侧），结算由 resolved 帧驱动。
-  const pending = new PendingInteractionService(() => dsh.client);
+  // M4: pending 交互闭环（审批 / ask-user / plan-review）——$events waterfall
+  // 帧→列表、应答/取消走 $events/result RPC（eventId 留在扩展侧），结算由
+  // waterfall cancel 帧驱动。
+  const pending = new PendingInteractionService(
+    (eventId, outcome) => dsh.answerWaterfall(eventId, outcome),
+  );
 
   // M3b: / 指令服务（commands/list + execute 契约跟随；/model 数据面）。
-  const commands = new CommandService(() => dsh.client);
+  const commands = new CommandService(() => dsh.client, (line) => log(line));
 
   // M3b+: / 菜单技能目录（skill.list 契约跟随；纯附加，agent-preset/selected + 重启失效）。
   const skills = new SkillService(() => dsh.client);
@@ -212,82 +215,58 @@ export function activate(context: vscode.ExtensionContext): void {
     onLog: (line) => log(`[@] ${line}`),
   });
 
-  // M2: live mux frames fold into conversation state; host status flips
-  // refresh the session-list running dots; a mux drop re-attaches history
-  // (reconnect = reopen stream + refetch, per the reference client).
+  // M2: live mux frames (synthesized from session/follow stream items by
+  // DshService) fold into conversation state; host status flips refresh the
+  // session-list running dots.
   dsh.on("mux", (frame) => {
     conversations.applyFrame(frame);
-    pending.applyFrame(frame);
     provider.applyMuxFrame(frame);
-    // M4b: session/projection 帧（todos 等 key）→ 投影 store（higher-seq-wins 直写）。
-    projections.applyFrame(frame);
-    // M4: 流级错误 → 日志 + 状态栏（不打断对话流；多伴重连自我恢复）。
-    const payload = frame.payload as {
-      type?: string;
-      error?: { message?: string };
-    };
-    if (payload.type === "stream/error") {
-      const message = payload.error?.message ?? i18n.t("host.streamError");
-      log(`[events.mux] stream/error: ${message}`);
-      provider.post({ type: "notice", text: i18n.t("host.streamErrorMessage", { message }) });
-    }
   });
   dsh.on("host", (frame) => {
     if (frame.method === "host/session-status") void provider.refreshSessions();
-    // 归档集合变化（本标签页或其它标签页）：更新缓存 + 清掉被归档的当前选中 + 重拉列表。
-    if (frame.method === "host/archived-sessions-changed") {
-      const payload = frame.payload as { archivedSessionIds?: string[] };
-      sessions.setArchived(payload.archivedSessionIds ?? []);
-      void provider.reconcileArchiveSet();
-    }
-    // 会话新增 / 工作区成员变化：刷新列表（web 用这些帧保持列表实时，插件之前只响应 session-status）。
+    // 会话新增 / 移除：刷新列表。
     if (
       frame.method === "host/session-added" ||
-      frame.method === "host/workspace-changed"
+      frame.method === "host/session-removed" ||
+      frame.method === "host/session-activity"
     ) {
       void provider.refreshSessions();
     }
     // M4: 无 turn 位置的 agent 失败 → 对话流注记节点。
     if (frame.method === "host/agent-error") {
-      const payload = frame.payload as { sessionId?: string; message?: string };
-      if (payload.sessionId && payload.message)
-        provider.pushAgentError(payload.sessionId, payload.message);
+      const payload = frame.payload as { sessionId?: string; args?: unknown[] };
+      // $events emit carries (sessionId, message) as args.
+      const sessionId =
+        typeof payload.sessionId === "string"
+          ? payload.sessionId
+          : typeof payload.args?.[0] === "string"
+            ? (payload.args[0] as string)
+            : undefined;
+      const message =
+        typeof payload.args?.[1] === "string"
+          ? (payload.args[1] as string)
+          : undefined;
+      if (sessionId && message)
+        provider.pushAgentError(sessionId, message);
     }
-    // M4: host 流级错误 → 日志 + 状态栏。
-    const hpayload = frame.payload as {
-      type?: string;
-      error?: { message?: string };
-    };
-    if (hpayload.type === "stream/error") {
-      log(`[events.host] stream/error: ${hpayload.error?.message ?? ""}`);
-      provider.post({ type: "notice", text: i18n.t("host.streamError") });
-    }
-    // M3b: 命令目录失效（host remote-event 允许名单透传）→ 失效缓存并重拉当前会话。
+    // M3b: 命令目录失效（$events emit 透传）→ 失效缓存并重拉当前会话。
     if (frame.method === "host/remote-event") {
       const payload = frame.payload as {
-        type?: string;
         event?: string;
         args?: unknown[];
       };
-      if (
-        payload.type === "host/remote-event" &&
-        payload.event === "commands/change"
-      ) {
+      if (payload.event === "commands/change") {
         commands.invalidate();
         if (provider.selectedSessionId)
           void provider.refreshCommands(provider.selectedSessionId);
       }
-      if (
-        payload.type === "host/remote-event" &&
-        payload.event === "agent-preset/selected"
-      ) {
+      if (payload.event === "agent-preset/selected") {
         const sessionId = payload.args?.[0];
         const agentPreset = payload.args?.[1];
         if (typeof sessionId === "string" && typeof agentPreset === "string")
           void provider.handleAgentPresetSelected(sessionId, agentPreset);
       }
       if (
-        payload.type === "host/remote-event" &&
         payload.event === "settings/document-updated" &&
         payload.args?.[0] === "agent-presets"
       ) {
@@ -298,11 +277,23 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }
   });
+  // M4: $events waterfall frames (approval/request, user-questions/request) →
+  // pending interaction map; waterfallCancel removes settled entries.
+  dsh.on("waterfall", (frame) => {
+    pending.applyWaterfall(frame);
+  });
+  dsh.on("waterfallCancel", (eventId: string) => {
+    pending.applyWaterfallCancel(eventId);
+  });
+  // M4b: session/control stream frames → projection store (baseline + projection).
+  // The control stream is opened on ready (see below).
+  let controlCancel: (() => void) | null = null;
+  let workspaceFollowCancel: (() => void) | null = null;
   dsh.on("muxClose", () => {
     if (dsh.statusValue !== "ready") return;
-    conversations
-      .resync()
-      .catch((error: unknown) => log(`会话重同步失败: ${String(error)}`));
+    // In the new protocol, reconnect reopens streams automatically via
+    // DshService's generation management. The fold state survives; live
+    // frames will re-apply. No explicit resync needed.
   });
 
   const provider = new ChatViewProvider(
@@ -320,6 +311,7 @@ export function activate(context: vscode.ExtensionContext): void {
     pickDshPath,
     restartDsh,
     context.extensionUri,
+    (sessionId, onSnapshot) => dsh.openSessionFollow(sessionId, onSnapshot),
   );
 
   context.subscriptions.push(
@@ -429,6 +421,22 @@ export function activate(context: vscode.ExtensionContext): void {
       // M3b+: 技能目录跨代失效（dsh 重启后 host 目录可能不同；首启空缓存为无害 no-op）。
       skills.invalidate();
       agentPresets.resetConnected();
+      // Open the session/control stream (projection/queue/job baseline + increments).
+      controlCancel?.();
+      controlCancel = dsh.openSessionControl((frame) => {
+        projections.applyControlFrame(frame);
+      });
+      // Open the workspace/follow stream (baseline + upsert/remove/order/archived).
+      workspaceFollowCancel?.();
+      workspaceFollowCancel = dsh.openWorkspaceFollow((frame) => {
+        sessions.applyWorkspaceFrame(frame);
+        // Archived set changes → reconcile current selection + refresh list.
+        const payload = frame.payload as { type?: string };
+        if (payload.type === "archived" || payload.type === "baseline") {
+          void provider.reconcileArchiveSet();
+        }
+        void provider.refreshSessions();
+      });
       void ensureWorkspaceForWindow().then(() => {
         void provider.refreshAgentPresets();
         // 首启自动会话：ready 且尚无选中会话时，自动 resolveNewSession + attach，

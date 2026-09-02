@@ -2,13 +2,11 @@
  * PendingInteractionService (M4): the pending-interaction closed loop —
  * approval / ask-user / plan-review minimal dialogs. Mirrors the reference
  * client's PendingWait list: one per-session Map keyed `a:<approvalId>` /
- * `q:<rpcId>`, fed from the four mux frames, settled only by the resolved
- * frames (member removal IS settlement — a failed respond never removes an
- * entry). The rpcId stays inside the extension host: webview answers carry
- * the opaque key, this service backfills the envelope rpcId and posts
- * /api/respond, checking the carrier receipt. Reconnect recovery is free:
- * the mux re-replays still-pending requested frames with the same rpcId, so
- * re-apply = payload refresh (Map.set), never a duplicate card.
+ * `q:<eventId>`, fed from `$events` waterfall frames (approval/request and
+ * user-questions/request), settled by the Host's waterfall resolution (the
+ * Host cancels the pending delivery when the agent's turn ends). The
+ * eventId stays inside the extension host: webview answers carry the opaque
+ * key, this service backfills the eventId and calls DshService.answerWaterfall.
  *
  * plan-review is not a separate event: it is an AskUserQuestionItem whose
  * `intent.kind === 'plan-review'` — narrowed here exactly like the reference
@@ -18,7 +16,7 @@
  */
 
 import { EventEmitter } from "node:events";
-import type { WireClient, ServerRequest, RpcReceipt } from "../dsh/wire.ts";
+import type { WaterfallFrame } from "./dsh-service.ts";
 import type {
   PendingAnswer,
   PendingItemView,
@@ -39,39 +37,47 @@ interface WireQuestion {
 interface PendingEntry {
   key: string;
   sessionId: string;
-  rpcId: string;
+  eventId: string;
   view: PendingItemView;
 }
 
-/** 结构镜像的 mux 帧（本服务消费 4 类；其余帧不属本服务）。 */
-type PendingFrame =
-  | {
-      type: "approval/requested";
-      sessionId: string;
-      approvalId: string;
-      toolName: string;
-      callId?: string;
-      reason?: string;
-    }
-  | {
-      type: "approval/resolved";
-      sessionId: string;
-      approvalId: string;
-      outcome: string;
-    }
-  | { type: "question/requested"; sessionId: string; questions: WireQuestion[] }
-  | {
-      type: "question/resolved";
-      sessionId: string;
-      questionRpcId: string;
-      outcome: string;
-    };
-
 export class PendingInteractionService extends EventEmitter {
   private readonly entries = new Map<string, PendingEntry>();
+  private readonly answerWaterfall: (
+    eventId: string,
+    outcome:
+      | { kind: "next" }
+      | { kind: "result"; value?: unknown }
+      | {
+          kind: "rejected";
+          error: {
+            name: string;
+            message: string;
+            code?: string;
+            details?: unknown;
+          };
+        },
+  ) => Promise<void>;
 
-  constructor(private readonly wire: () => WireClient | null) {
+  constructor(
+    answerWaterfall: (
+      eventId: string,
+      outcome:
+        | { kind: "next" }
+        | { kind: "result"; value?: unknown }
+        | {
+            kind: "rejected";
+            error: {
+              name: string;
+              message: string;
+              code?: string;
+              details?: unknown;
+            };
+          },
+    ) => Promise<void>,
+  ) {
     super();
+    this.answerWaterfall = answerWaterfall;
   }
 
   /** The pending views for a session, oldest-first (Map insertion order). */
@@ -83,65 +89,72 @@ export class PendingInteractionService extends EventEmitter {
     return views;
   }
 
-  /** Route one mux frame into the pending map. */
-  applyFrame(frame: ServerRequest): void {
-    const payload = frame.payload as PendingFrame;
-    switch (payload.type) {
-      case "approval/requested": {
-        const key = `a:${payload.approvalId}`;
-        const view: PendingItemView = {
-          kind: "approval",
-          key,
-          toolName: payload.toolName,
-          ...(payload.reason !== undefined ? { reason: payload.reason } : {}),
-          ...(payload.callId !== undefined ? { callId: payload.callId } : {}),
-        };
-        this.upsert(key, payload.sessionId, frame.rpcId, view);
-        break;
-      }
-      case "approval/resolved":
-        this.settle(`a:${payload.approvalId}`);
-        break;
-      case "question/requested": {
-        const key = `q:${frame.rpcId}`;
-        const view = narrowQuestions(key, payload.questions);
-        this.upsert(key, payload.sessionId, frame.rpcId, view);
-        break;
-      }
-      case "question/resolved":
-        this.settle(`q:${payload.questionRpcId}`);
-        break;
-      default:
-        return; // not ours
+  /** Route one `$events` waterfall frame into the pending map. */
+  applyWaterfall(frame: WaterfallFrame): void {
+    if (frame.event === "approval/request") {
+      const request = frame.request as {
+        agent?: { session?: { id: string } };
+        toolName?: string;
+        callId?: string;
+        reason?: string;
+      };
+      const sessionId = request.agent?.session?.id ?? frame.agentId;
+      const approvalId = frame.eventId;
+      const key = `a:${approvalId}`;
+      const view: PendingItemView = {
+        kind: "approval",
+        key,
+        toolName: request.toolName ?? "",
+        ...(request.reason !== undefined ? { reason: request.reason } : {}),
+        ...(request.callId !== undefined ? { callId: request.callId } : {}),
+      };
+      this.upsert(key, sessionId, frame.eventId, view);
+      return;
     }
+    if (frame.event === "user-questions/request") {
+      const request = frame.request as {
+        agent?: { session?: { id: string } };
+        questions?: WireQuestion[];
+      };
+      const sessionId = request.agent?.session?.id ?? frame.agentId;
+      const key = `q:${frame.eventId}`;
+      const view = narrowQuestions(key, request.questions ?? []);
+      this.upsert(key, sessionId, frame.eventId, view);
+      return;
+    }
+  }
+
+  /** Route a waterfall cancellation (Host settled the delivery). */
+  applyWaterfallCancel(eventId: string): void {
+    // Approval keys use the eventId directly; question keys use the eventId.
+    this.settle(`a:${eventId}`);
+    this.settle(`q:${eventId}`);
   }
 
   /**
    * Answer a pending interaction. approval answers the wire outcome;
-   * question/plan-review answers the structured answer batch. Returns the
-   * carrier receipt: `accepted:false` (not-pending/bad-response) is NOT an
-   * error — the host already settled (race) or the encoding was wrong; the
-   * resolved frame decides removal.
+   * question/plan-review answers the structured answer batch. Returns when
+   * the `$events/result` RPC completes.
    */
   async answer(
     sessionId: string,
     key: string,
     answer: PendingAnswer,
-  ): Promise<RpcReceipt> {
+  ): Promise<void> {
     const entry = this.requireEntry(sessionId, key);
-    const client = this.requireClient();
     if (answer.kind === "approval") {
-      return await client.respond(entry.rpcId, {
-        ok: true,
+      await this.answerWaterfall(entry.eventId, {
+        kind: "result",
         value: {
           sessionId,
           approvalId: key.slice(2),
           outcome: answer.outcome,
         },
       });
+      return;
     }
-    return await client.respond(entry.rpcId, {
-      ok: true,
+    await this.answerWaterfall(entry.eventId, {
+      kind: "result",
       value: {
         sessionId,
         answer: { answers: answer.answers },
@@ -149,21 +162,20 @@ export class PendingInteractionService extends EventEmitter {
     });
   }
 
-  /** Cancel a pending question/plan-review (= cancelled error; approval has no client cancel). */
-  async cancel(sessionId: string, key: string): Promise<RpcReceipt> {
+  /** Cancel a pending question/plan-review (= rejected error; approval has no client cancel). */
+  async cancel(sessionId: string, key: string): Promise<void> {
     const entry = this.requireEntry(sessionId, key);
     if (entry.view.kind === "approval") {
       throw new Error(
         "审批请求没有取消出口（wire 仅 allowed-once/rejected 两结局）",
       );
     }
-    const client = this.requireClient();
-    return await client.respond(entry.rpcId, {
-      ok: false,
+    await this.answerWaterfall(entry.eventId, {
+      kind: "rejected",
       error: {
-        code: "cancelled",
+        name: "Cancelled",
         message: "the user closed this question request",
-        details: {},
+        code: "cancelled",
       },
     });
   }
@@ -171,17 +183,17 @@ export class PendingInteractionService extends EventEmitter {
   private upsert(
     key: string,
     sessionId: string,
-    rpcId: string,
+    eventId: string,
     view: PendingItemView,
   ): void {
-    // Replay of the same rpcId refreshes the payload in place (Map.set keeps
+    // Replay of the same eventId refreshes the payload in place (Map.set keeps
     // insertion order — oldest-first preserved); still notify so the webview
     // re-renders the (possibly refreshed) card, but never a duplicate entry.
-    this.entries.set(key, { key, sessionId, rpcId, view });
+    this.entries.set(key, { key, sessionId, eventId, view });
     this.emit("change", sessionId);
   }
 
-  /** Frame-driven settlement: the authoritative resolved frame removes the wait. */
+  /** Frame-driven settlement: the authoritative cancel removes the wait. */
   private settle(key: string): void {
     const entry = this.entries.get(key);
     if (!entry) return;
@@ -194,12 +206,6 @@ export class PendingInteractionService extends EventEmitter {
     if (!entry || entry.sessionId !== sessionId)
       throw new Error("待应答交互不存在或已结算");
     return entry;
-  }
-
-  private requireClient(): WireClient {
-    const client = this.wire();
-    if (!client) throw new Error("dsh web 尚未就绪");
-    return client;
   }
 }
 
