@@ -2,7 +2,7 @@
   "name": "deepseek-gold-harness",
   "displayName": "DeepSeek Gold Harness",
   "description": "DeepSeek Gold Harness — a VS Code extension for the DeepSeek Harness (dsh) agent runtime",
-  "version": "0.1.84",
+  "version": "0.1.86",
   "publisher": "AgentChatBus",
   "author": {
     "name": "Killea",
