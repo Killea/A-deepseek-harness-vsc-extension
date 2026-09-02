@@ -3,7 +3,7 @@
 # DeepSeek Gold Harness — VS Code Extension
 
 <!-- LATEST-RELEASE -->
-> **Latest build: v0.1.87** — [Download VSIX](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases/download/v0.1.87/deepseek-gold-harness-0.1.87.vsix)
+> **Latest build: v0.1.88** — [Download VSIX](https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/deepseek-gold-harness-0.1.88.vsix)
 <!-- /LATEST-RELEASE -->
 
 > [!NOTE]
@@ -105,12 +105,13 @@ All settings are under `killea.deepseek-gold-harness.*` (scope: machine).
 
 ## Install
 
-### GitHub Releases (recommended)
+### Direct download (recommended)
 
-Download the latest VSIX from [GitHub Releases](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases) and install:
+Click the **Download VSIX** link at the top of this page, or download directly:
 
 ```bash
-code --install-extension deepseek-gold-harness-<version>.vsix
+curl -L -o deepseek-gold-harness.vsix https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/main/deepseek-gold-harness-0.1.88.vsix
+code --install-extension deepseek-gold-harness.vsix
 ```
 
 ### Visual Studio Marketplace

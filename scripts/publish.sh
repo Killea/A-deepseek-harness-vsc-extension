@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Build, auto-bump patch version, package VSIX, update README with the latest
-# version + download link, and optionally publish to GitHub Releases.
+# Build, auto-bump patch version, package VSIX, update README with a
+# raw.githubusercontent.com download link, then git add + commit everything
+# so the VSIX is directly downloadable from the repo's main branch.
 #
 # Prerequisites:
-#   - gh CLI authenticated:  gh auth status   (only needed for --publish)
+#   - git repo with push access to origin/main
+#   - pnpm, vsce
 #
 # Usage:
-#   ./scripts/publish.sh                # bump patch, build, package VSIX, update README (default)
-#   ./scripts/publish.sh --no-bump      # keep current version, build, package, update README
+#   ./scripts/publish.sh                # bump patch, build, commit VSIX + README + package.json (default)
+#   ./scripts/publish.sh --no-bump      # keep current version, build, commit
 #   ./scripts/publish.sh --bump minor   # bump minor version instead of patch
 #   ./scripts/publish.sh --bump major   # bump major version instead of patch
-#   ./scripts/publish.sh --publish      # also publish to GitHub Releases
-#   ./scripts/publish.sh --git-commit   # git add + commit the version bump and README update
+#   ./scripts/publish.sh --push         # also git push to origin after commit
 
 set -euo pipefail
 
@@ -21,16 +22,14 @@ PUBLISHER="AgentChatBus"
 EXT_ID="deepseek-gold-harness"
 BUMP="patch"
 DO_BUMP=true
-DO_PUBLISH=false
-DO_GIT_COMMIT=false
+DO_PUSH=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --no-bump)    DO_BUMP=false; shift ;;
-    --bump)       BUMP="$2"; shift 2 ;;
-    --publish)    DO_PUBLISH=true; shift ;;
-    --git-commit) DO_GIT_COMMIT=true; shift ;;
-    *)            echo "Unknown option: $1"; exit 1 ;;
+    --no-bump) DO_BUMP=false; shift ;;
+    --bump)    BUMP="$2"; shift 2 ;;
+    --push)    DO_PUSH=true; shift ;;
+    *)         echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
@@ -66,25 +65,27 @@ if [[ ! -f "$VSIX" ]]; then
 fi
 echo "==> Packaged: ${VSIX}"
 
-# --- Step 3: Update README with latest version + download link -------------
+# --- Step 3: Remove old VSIX files (keep only the latest) -----------------
+echo "==> Cleaning old VSIX files..."
+OLD_VSIXES=$(git ls-files '*.vsix' | grep -v "^${VSIX}$" || true)
+if [[ -n "$OLD_VSIXES" ]]; then
+  echo "$OLD_VSIXES" | xargs -r git rm --quiet
+  echo "$OLD_VSIXES" | xargs -r rm -f
+  echo "    Removed: $(echo "$OLD_VSIXES" | tr '\n' ' ')"
+fi
+
+# --- Step 4: Update README with raw download link --------------------------
 echo "==> Updating README with version ${VERSION}..."
 README="README.md"
-REPO_URL="https://github.com/Killea/A-deepseek-harness-vsc-extension"
-DOWNLOAD_URL="${REPO_URL}/releases/download/v${VERSION}/${VSIX}"
+BRANCH="main"
+RAW_URL="https://raw.githubusercontent.com/Killea/A-deepseek-harness-vsc-extension/${BRANCH}/${VSIX}"
 
-# The badge block sits between the first <img> line and the first ## heading.
-# We replace everything from the <!-- LATEST-RELEASE --> marker (or insert one)
-# up to the next blank line.
 if ! grep -q '<!-- LATEST-RELEASE -->' "$README"; then
-  # Insert the marker block right after the title line (first # heading).
-  # The title line is the first line starting with "# ".
   python3 -c "
-import re, sys
 content = open('$README', 'r').read()
 block = '''<!-- LATEST-RELEASE -->
-> **Latest build: v${VERSION}** — [Download VSIX](${DOWNLOAD_URL})
+> **Latest build: v${VERSION}** — [Download VSIX](${RAW_URL})
 <!-- /LATEST-RELEASE -->'''
-# Insert after the first '# ' heading line
 lines = content.split('\n')
 for i, line in enumerate(lines):
     if line.startswith('# '):
@@ -94,47 +95,40 @@ for i, line in enumerate(lines):
 open('$README', 'w').write('\n'.join(lines))
 "
 else
-  # Replace the existing marker block
   python3 -c "
 import re
 content = open('$README', 'r').read()
 pattern = r'<!-- LATEST-RELEASE -->.*?<!-- /LATEST-RELEASE -->'
 replacement = '''<!-- LATEST-RELEASE -->
-> **Latest build: v${VERSION}** — [Download VSIX](${DOWNLOAD_URL})
+> **Latest build: v${VERSION}** — [Download VSIX](${RAW_URL})
 <!-- /LATEST-RELEASE -->'''
 new_content = re.sub(pattern, replacement, content, flags=re.DOTALL)
 open('$README', 'w').write(new_content)
 "
 fi
-echo "    README updated: v${VERSION} → ${DOWNLOAD_URL}"
+echo "    README updated: v${VERSION} → ${RAW_URL}"
 
-# --- Step 4: Git commit (optional) ----------------------------------------
-if $DO_GIT_COMMIT; then
-  echo "==> Git commit..."
-  git add package.json README.md "$VSIX"
-  git commit -m "chore: release v${VERSION}"
-  echo "    Committed: v${VERSION}"
+# --- Step 5: Git add + commit ---------------------------------------------
+echo "==> Git commit..."
+git add package.json README.md "$VSIX"
+git commit -m "chore: release v${VERSION}
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>"
+echo "    Committed: v${VERSION}"
+
+# --- Step 6: Push (optional) ----------------------------------------------
+if $DO_PUSH; then
+  echo "==> Pushing to origin..."
+  git push origin HEAD
+  echo "    Pushed: v${VERSION}"
+  echo ""
+  echo "    Download URL: ${RAW_URL}"
+else
+  echo "==> Done (local commit): v${VERSION}"
+  echo "    To push: ./scripts/publish.sh --push  (or: git push origin HEAD)"
+  echo "    Download URL (after push): ${RAW_URL}"
 fi
-
-# --- Step 5: Publish to GitHub Releases (optional) ------------------------
-if ! $DO_PUBLISH; then
-  echo "==> Done (dry run): ${VSIX}"
-  echo "    To publish: ./scripts/publish.sh --publish"
-  exit 0
-fi
-
-echo "==> Publishing to GitHub Releases..."
-if ! gh release create "v${VERSION}" "$VSIX" \
-  --title "v${VERSION}" \
-  --notes "DeepSeek Gold Harness v${VERSION}
-
-Download the VSIX below and install with:
-\`\`\`bash
-code --install-extension ${VSIX}
-\`\`\`"; then
-  echo "ERROR: gh release create failed (is gh authenticated?)"
-  exit 1
-fi
-echo "    GitHub Release: v${VERSION} published"
 
 echo "==> All done: v${VERSION}"

@@ -20,7 +20,7 @@ dist/
 out/
 # package.nls*.json are build artifacts copied from src/shared/nls/
 /package.nls*.json
-*.vsix
+# VSIX files are committed to the repo for raw.githubusercontent.com downloads
 *.log
 .scratch
 .playwright-mcp
