@@ -55,7 +55,9 @@ npx @deepseek-ai/dsh
 > [!NOTE]
 > Due to possible breaking changes in DeepSeek Harness, this extension may only work with specific versions of dsh.
 >
-> Tested version: 0.1.0-rc.6
+> **Compatible versions:**
+> - `0.1.2-alpha.5` ✅ (current — cookie auth + new RPC argument schema)
+> - `0.1.0-rc.6` ✅ (legacy — flat RPC arguments, no cookie auth)
 
 ## Multi-language Support (i18n)
 
@@ -99,17 +101,23 @@ All settings are under `killea.deepseek-gold-harness.*` (scope: machine).
 | `managedPort` | integer | `30800` | Fixed port used by the cross-window managed dsh runtime. A non-dsh listener is reported as a conflict. |
 | `autoStart` | boolean | `true` | Automatically connect to dsh when a workspace window opens. |
 | `locale` | string\|null | `null` | Display language. Auto-detects VS Code's language when empty. Supported: `en`, `zh-cn`, `zh-tw`, `ja`, `de`, `fr`, `es`. |
-| `minDshVersion` | string | `0.1.0-rc.6` | Reserved compatibility floor. Currently recorded but not enforced. |
+| `minDshVersion` | string | `0.1.0-rc.6` | Reserved compatibility floor. Currently recorded but not enforced. Compatible dsh versions: `0.1.0-rc.6` and `0.1.2-alpha.5`. |
 
 ## Install
+
+### GitHub Releases (recommended)
+
+Download the latest VSIX from [GitHub Releases](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases) and install:
+
+```bash
+code --install-extension deepseek-gold-harness-<version>.vsix
+```
 
 ### Visual Studio Marketplace
 
 [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=AgentChatBus.deepseek-gold-harness)
 
-### Download or Build VSIX
-
-[GitHub Releases](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases)
+### Build from source
 
 [GitHub Repo](https://github.com/Killea/A-deepseek-harness-vsc-extension)
 
