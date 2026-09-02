@@ -706,7 +706,7 @@ export default function App() {
 
   return (
     <div key={localeVersion} className="grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[1fr_auto] overflow-hidden">
-      <div className="flex min-h-0 flex-col overflow-hidden">
+      <div className="relative flex min-h-0 flex-col overflow-hidden">
         {/* 预览版清理：ready（正常态）不占 header，非 ready（错误/重连/启动中/停止）仍显示。 */}
         {(serviceStatus.status !== 'ready' || notice !== null) && (
           <StatusBar status={serviceStatus.status} detail={notice ?? serviceStatus.detail} />
@@ -726,29 +726,27 @@ export default function App() {
           onRenameSession={handleRenameSession}
           onForkSession={handleForkSession}
         />
-        <div className="relative min-h-0 flex-1">
-          <ChatArea
-            items={selected?.items ?? []}
-            running={selectedRunning}
-            sessionId={selectedSessionId}
-            hasMore={selected?.hasMore === true}
-            loadingOlder={selectedSessionId ? (loadingOlderBySession[selectedSessionId] ?? false) : false}
-            loadOlderError={selectedSessionId ? (loadOlderErrors[selectedSessionId] ?? null) : null}
-            onLoadOlder={selectedSessionId ? () => handleLoadOlder(selectedSessionId) : undefined}
-            workspacePath={workspace?.path}
-            onOpenFile={handleOpenFile}
-            onOpenExternalUrl={handleOpenExternalUrl}
-            fileMentions={fileMentions}
-            turnStartMs={selected?.turnStartMs ?? null}
-            lastTurnMs={selected?.lastTurnMs ?? null}
-          />
-          {/* Easter egg: 宝物浮层（绝对定位在 ChatArea 之上） */}
-          <TreasureLayer
-            treasure={activeTreasure}
-            onPickup={handleTreasurePickup}
-            onExpire={handleTreasureExpire}
-          />
-        </div>
+        <ChatArea
+          items={selected?.items ?? []}
+          running={selectedRunning}
+          sessionId={selectedSessionId}
+          hasMore={selected?.hasMore === true}
+          loadingOlder={selectedSessionId ? (loadingOlderBySession[selectedSessionId] ?? false) : false}
+          loadOlderError={selectedSessionId ? (loadOlderErrors[selectedSessionId] ?? null) : null}
+          onLoadOlder={selectedSessionId ? () => handleLoadOlder(selectedSessionId) : undefined}
+          workspacePath={workspace?.path}
+          onOpenFile={handleOpenFile}
+          onOpenExternalUrl={handleOpenExternalUrl}
+          fileMentions={fileMentions}
+          turnStartMs={selected?.turnStartMs ?? null}
+          lastTurnMs={selected?.lastTurnMs ?? null}
+        />
+        {/* Easter egg: 宝物浮层（绝对定位覆盖整个聊天+输入区） */}
+        <TreasureLayer
+          treasure={activeTreasure}
+          onPickup={handleTreasurePickup}
+          onExpire={handleTreasureExpire}
+        />
       </div>
       {pendingBlocked ? (
         // M4: pending 接管 composer——输入区禁用（frozen guard），stop 保留为逃生口。
