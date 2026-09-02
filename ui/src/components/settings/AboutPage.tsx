@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
+import type { SettingsPanelView, TreasureCounts } from '../../../../src/shared/protocol.ts'
 import type { SettingsWire } from './wire.ts'
 import goldLogoUrl from '@ui/src/deepseek-color.svg?url'
 
@@ -37,6 +37,8 @@ interface AboutPageProps {
   panel: SettingsPanelView | null
   wire: SettingsWire
   onOpenInBrowser: () => void
+  /** Easter egg: treasure collection counts. */
+  treasureCounts: TreasureCounts | null
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -48,7 +50,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
+export function AboutPage({ panel, wire, onOpenInBrowser, treasureCounts }: AboutPageProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
@@ -219,6 +221,33 @@ export function AboutPage({ panel, wire, onOpenInBrowser }: AboutPageProps) {
           </div>
         ) : null}
       </section>
+
+      {/* Easter egg: treasure collection stats */}
+      {treasureCounts !== null && (
+        <section className="flex flex-col gap-2 border-t border-border-panel pt-3">
+          <h3 className="text-xs font-medium text-foreground">Treasure Collection</h3>
+          <div className="grid grid-cols-4 gap-2">
+            {([
+              { type: 'coin', emoji: '🪙', label: 'Coins' },
+              { type: 'gem', emoji: '💰', label: 'Gold' },
+              { type: 'bill', emoji: '💵', label: 'Bills' },
+              { type: 'diamond', emoji: '💎', label: 'Diamonds' },
+            ] as const).map(({ type, emoji, label }) => (
+              <div
+                key={type}
+                className="flex flex-col items-center gap-0.5 rounded-xs border border-border-panel px-1.5 py-2"
+              >
+                <span className="text-xl leading-none">{emoji}</span>
+                <span className="text-sm font-medium text-foreground">{treasureCounts[type]}</span>
+                <span className="text-[10px] text-description">{label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-description">
+            Treasures drop randomly after AI replies. Click to collect!
+          </p>
+        </section>
+      )}
     </div>
   )
 }

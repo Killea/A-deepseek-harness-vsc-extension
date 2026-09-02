@@ -7,7 +7,7 @@
 
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
+import type { SettingsPanelView, TreasureCounts } from '../../../../src/shared/protocol.ts'
 import { AboutPage } from './AboutPage.tsx'
 import { GeneralSettings } from './GeneralSettings.tsx'
 import { LanguageSettings } from './LanguageSettings.tsx'
@@ -27,6 +27,8 @@ interface SettingsPageProps {
   /** Whether the initial section has already been set (survives remount). */
   initialized: boolean
   onInitialized: () => void
+  /** Easter egg: treasure collection counts (About page bottom). */
+  treasureCounts: TreasureCounts | null
 }
 
 function ModelIcon() {
@@ -73,7 +75,7 @@ function LanguageIcon() {
   )
 }
 
-export function SettingsPage({ panel, wire, onBack, onOpenInBrowser, section, onSectionChange, initialized, onInitialized }: SettingsPageProps) {
+export function SettingsPage({ panel, wire, onBack, onOpenInBrowser, section, onSectionChange, initialized, onInitialized, treasureCounts }: SettingsPageProps) {
   const { t } = useTranslation()
 
   // 首次收到面板视图时按就绪态默认选中（之后手动切换不被跳转）。
@@ -178,7 +180,7 @@ export function SettingsPage({ panel, wire, onBack, onOpenInBrowser, section, on
               <LanguageSettings panel={panel} wire={wire} />
             )
           ) : (
-            <AboutPage panel={panel} wire={wire} onOpenInBrowser={onOpenInBrowser} />
+            <AboutPage panel={panel} wire={wire} onOpenInBrowser={onOpenInBrowser} treasureCounts={treasureCounts} />
           )}
         </div>
       </div>

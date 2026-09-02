@@ -3,7 +3,7 @@
 # DeepSeek Gold Harness — VS Code Extension
 
 <!-- LATEST-RELEASE -->
-> **Latest build: v0.1.86** — [Download VSIX](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases/download/v0.1.86/deepseek-gold-harness-0.1.86.vsix)
+> **Latest build: v0.1.87** — [Download VSIX](https://github.com/Killea/A-deepseek-harness-vsc-extension/releases/download/v0.1.87/deepseek-gold-harness-0.1.87.vsix)
 <!-- /LATEST-RELEASE -->
 
 > [!NOTE]

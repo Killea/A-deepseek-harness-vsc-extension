@@ -216,3 +216,62 @@ body:focus-within .scrollable {
     0 0 4px 0 rgb(0 127 212 / 55%),
     0 0 8px 1px rgb(0 127 212 / 28%);
 }
+
+/* ---- Easter egg: 宝物掉落动画 ---- */
+
+/* 浮起 + 摆动 + 脉冲光晕（8s 循环） */
+@keyframes treasure-float {
+  0%   { transform: translateY(40px) scale(0.5); opacity: 0; }
+  15%  { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes treasure-sway {
+  0%, 100% { transform: rotate(-8deg); }
+  50%      { transform: rotate(8deg); }
+}
+
+@keyframes treasure-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgb(255 215 0 / 40%)); }
+  50%      { filter: drop-shadow(0 0 8px rgb(255 215 0 / 70%)); }
+}
+
+.treasure-float {
+  animation: treasure-float 0.6s ease-out forwards;
+}
+
+.treasure-float .treasure-glow {
+  animation: treasure-sway 2s ease-in-out infinite, treasure-glow-pulse 1.5s ease-in-out infinite;
+}
+
+/* 拾取：放大 + 淡出 */
+@keyframes treasure-collected {
+  0%   { transform: scale(1); opacity: 1; }
+  40%  { transform: scale(1.8); opacity: 0.8; }
+  100% { transform: scale(2.5) translateY(-30px); opacity: 0; }
+}
+
+.treasure-collected {
+  animation: treasure-collected 0.7s ease-out forwards;
+}
+
+/* 超时淡出 */
+@keyframes treasure-expired {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8) translateY(20px); opacity: 0; }
+}
+
+.treasure-expired {
+  animation: treasure-expired 0.6s ease-in forwards;
+}
+
+/* 拾取飘字 "+1 Diamond" */
+@keyframes treasure-pickup-text {
+  0%   { transform: translateY(0); opacity: 0; }
+  20%  { transform: translateY(-8px); opacity: 1; }
+  100% { transform: translateY(-40px); opacity: 0; }
+}
+
+.treasure-pickup-text {
+  animation: treasure-pickup-text 0.8s ease-out forwards;
+}

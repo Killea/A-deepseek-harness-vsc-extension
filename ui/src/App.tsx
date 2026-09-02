@@ -28,6 +28,8 @@ import type {
   SettingsPanelView,
   SkillsSnapshot,
   TodoItem,
+  TreasureCounts,
+  TreasureType,
   UsageStatsView,
   WebviewToExtensionMessage,
   WorkspaceView,
@@ -42,6 +44,7 @@ import { AboutGate } from './components/settings/AboutGate.tsx'
 import { NoProviderGate } from './components/settings/NoProviderGate.tsx'
 import { noProviderReadiness } from './components/settings/readiness.ts'
 import { LoadingPage } from './components/LoadingPage.tsx'
+import { TreasureLayer, rollTreasure, type ActiveTreasure } from './components/Treasure.tsx'
 import type { SettingsReply, SettingsWire } from './components/settings/wire.ts'
 import { IconStopFill16 } from '../icons/index.tsx'
 import { setLocale } from './i18n.ts'
@@ -130,6 +133,11 @@ export default function App() {
   const [gateDismissed, setGateDismissed] = useState(false)
   const [webviewVisible, setWebviewVisible] = useState(document.visibilityState === 'visible')
   const [settingsPanel, setSettingsPanel] = useState<SettingsPanelView | null>(null)
+  // Easter egg: 宝物掉落 + 收集统计。
+  const [activeTreasure, setActiveTreasure] = useState<ActiveTreasure | null>(null)
+  const [treasureCounts, setTreasureCounts] = useState<TreasureCounts | null>(null)
+  const treasureIdRef = useRef(0)
+  const wasRunningRef = useRef(false)
   // 自动附带：当前活动编辑器文件（composer 下方文件条；null = 无编辑器隐藏）。
   const [activeFile, setActiveFile] = useState<ActiveFileView | null>(null)
   // 自动附带：每 composer 槽的眼睛开关（缺席 = 启用）。活动文件变化时整体重置
@@ -351,6 +359,9 @@ export default function App() {
           }
           break
         }
+        case 'treasureCounts':
+          setTreasureCounts(message.counts)
+          break
       }
     }
     window.addEventListener('message', onMessage)
@@ -602,6 +613,31 @@ export default function App() {
   const pendingBlocked = pendingItems.length > 0
   const selectedActivity = selectedSessionId ? activityBySession[selectedSessionId] : undefined
   const selectedRunning = selected?.running === true || selectedActivity?.running === true
+
+  // Easter egg: AI 回复完成（running true→false）时 12% 概率掉落宝物。
+  useEffect(() => {
+    if (wasRunningRef.current && !selectedRunning && activeTreasure === null) {
+      if (Math.random() < 0.12) {
+        const type = rollTreasure()
+        const x = 10 + Math.random() * 80 // 10%~90% 避免贴边
+        treasureIdRef.current += 1
+        setActiveTreasure({ id: treasureIdRef.current, type, x })
+      }
+    }
+    wasRunningRef.current = selectedRunning
+  }, [selectedRunning, activeTreasure])
+
+  const handleTreasurePickup = useCallback((type: TreasureType): void => {
+    post({ type: 'treasurePickup', treasure: type })
+    setTreasureCounts((prev) => {
+      if (prev === null) return { coin: 0, gem: 0, bill: 0, diamond: 0, [type]: 1 } as TreasureCounts
+      return { ...prev, [type]: prev[type] + 1 }
+    })
+  }, [post])
+
+  const handleTreasureExpire = useCallback((): void => {
+    setActiveTreasure(null)
+  }, [])
   const selectedPendingErrors = selectedSessionId
     ? Object.fromEntries(Object.entries(pendingErrors)
       .filter(([key]) => key.startsWith(`${selectedSessionId}:`))
@@ -624,7 +660,7 @@ export default function App() {
     return <div key={localeVersion}><LoadingPage status={serviceStatus.status} detail={serviceStatus.detail} /></div>
   }
   if (serviceStatus.status === 'error' || serviceStatus.status === 'stopped') {
-    return <div key={localeVersion}><AboutGate panel={settingsPanel} wire={wire} onOpenInBrowser={() => post({ type: 'openInBrowser' })} /></div>
+    return <div key={localeVersion}><AboutGate panel={settingsPanel} wire={wire} onOpenInBrowser={() => post({ type: 'openInBrowser' })} treasureCounts={treasureCounts} /></div>
   }
 
   // Cline ChatLayout：grid 行 [1fr auto]，消息区占满、composer 钉在底部。
@@ -640,6 +676,7 @@ export default function App() {
           onSectionChange={setSettingsSection}
           initialized={settingsInitialized}
           onInitialized={() => setSettingsInitialized(true)}
+          treasureCounts={treasureCounts}
         />
       </div>
     )
@@ -689,21 +726,29 @@ export default function App() {
           onRenameSession={handleRenameSession}
           onForkSession={handleForkSession}
         />
-        <ChatArea
-          items={selected?.items ?? []}
-          running={selectedRunning}
-          sessionId={selectedSessionId}
-          hasMore={selected?.hasMore === true}
-          loadingOlder={selectedSessionId ? (loadingOlderBySession[selectedSessionId] ?? false) : false}
-          loadOlderError={selectedSessionId ? (loadOlderErrors[selectedSessionId] ?? null) : null}
-          onLoadOlder={selectedSessionId ? () => handleLoadOlder(selectedSessionId) : undefined}
-          workspacePath={workspace?.path}
-          onOpenFile={handleOpenFile}
-          onOpenExternalUrl={handleOpenExternalUrl}
-          fileMentions={fileMentions}
-          turnStartMs={selected?.turnStartMs ?? null}
-          lastTurnMs={selected?.lastTurnMs ?? null}
-        />
+        <div className="relative min-h-0 flex-1">
+          <ChatArea
+            items={selected?.items ?? []}
+            running={selectedRunning}
+            sessionId={selectedSessionId}
+            hasMore={selected?.hasMore === true}
+            loadingOlder={selectedSessionId ? (loadingOlderBySession[selectedSessionId] ?? false) : false}
+            loadOlderError={selectedSessionId ? (loadOlderErrors[selectedSessionId] ?? null) : null}
+            onLoadOlder={selectedSessionId ? () => handleLoadOlder(selectedSessionId) : undefined}
+            workspacePath={workspace?.path}
+            onOpenFile={handleOpenFile}
+            onOpenExternalUrl={handleOpenExternalUrl}
+            fileMentions={fileMentions}
+            turnStartMs={selected?.turnStartMs ?? null}
+            lastTurnMs={selected?.lastTurnMs ?? null}
+          />
+          {/* Easter egg: 宝物浮层（绝对定位在 ChatArea 之上） */}
+          <TreasureLayer
+            treasure={activeTreasure}
+            onPickup={handleTreasurePickup}
+            onExpire={handleTreasureExpire}
+          />
+        </div>
       </div>
       {pendingBlocked ? (
         // M4: pending 接管 composer——输入区禁用（frozen guard），stop 保留为逃生口。

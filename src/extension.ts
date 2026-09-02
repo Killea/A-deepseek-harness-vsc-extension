@@ -312,6 +312,7 @@ export function activate(context: vscode.ExtensionContext): void {
     restartDsh,
     context.extensionUri,
     (sessionId, onSnapshot) => dsh.openSessionFollow(sessionId, onSnapshot),
+    context.globalState,
   );
 
   context.subscriptions.push(

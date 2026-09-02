@@ -126,7 +126,9 @@ export type ExtensionToWebviewMessage =
   | { type: "droppedFiles"; paths: string[] }
   // 图片拖入区（TreeView handleDrop）：extension host 读取图片文件为 base64，
   // webview 接收后加入 Composer images（和粘贴图片效果一致：缩略图 + base64 附件）。
-  | { type: "droppedImages"; images: ImageAttachmentInput[] };
+  | { type: "droppedImages"; images: ImageAttachmentInput[] }
+  // Easter egg: 收集统计推送给 webview（About 页展示 + ready 时初始水合）。
+  | { type: "treasureCounts"; counts: TreasureCounts };
 
 /** Base64-encoded image attachment accompanying a send message. */
 export interface ImageAttachmentInput {
@@ -286,7 +288,11 @@ export type WebviewToExtensionMessage =
   | { type: "openExternalUrl"; url: string }
   // M5b: 对话流文件链接点击 → 扩展侧在当前 VS Code 窗口打开对应文件
   // （tool 卡片路径 / 工作区指令 change.path；相对路径以工作区根为锚）。
-  | { type: "openFile"; path: string };
+  | { type: "openFile"; path: string }
+  // Easter egg: webview 通知扩展侧拾取了一个宝物（持久化到 globalState）。
+  | { type: "treasurePickup"; treasure: TreasureType }
+  // Easter egg: webview 请求当前收集统计（About 页打开时）。
+  | { type: "treasureRequestCounts" };
 
 /**
  * 自动附带文件条的活动编辑器投影（composer 下方展示；absolutePath 在 send 时
@@ -1010,4 +1016,17 @@ export interface UsageStatsView {
   sessionStats?: SessionStatsView;
   contextPressure?: ContextPressureStatsView;
   contextBreakdown?: ContextBreakdownStatsView;
+}
+
+// ---- Easter egg: treasure collection (persisted in globalState) ----
+
+/** 宝物类型（权重递减：金袋 > 金币 > 钞票 > 钻石）。 */
+export type TreasureType = "coin" | "gem" | "bill" | "diamond";
+
+/** 各类型累计拾取数（About 页底部展示）。 */
+export interface TreasureCounts {
+  coin: number;
+  gem: number;
+  bill: number;
+  diamond: number;
 }

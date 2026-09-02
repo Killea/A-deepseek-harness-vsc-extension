@@ -1020,7 +1020,7 @@ export function Composer({
               {running || submitting ? (
                 <button
                   type="button"
-                  className="flex size-7 items-center justify-center rounded-full bg-error text-background hover:opacity-90"
+                  className="flex size-7 items-center justify-center rounded-full bg-error text-background hover:opacity-90 cursor-pointer"
                   title={t('common.stop')}
                   onClick={onCancel}
                 >
@@ -1029,7 +1029,7 @@ export function Composer({
               ) : (
                 <button
                   type="button"
-                  className="flex size-7 items-center justify-center rounded-full bg-button-background text-button-foreground hover:bg-button-hover disabled:opacity-40"
+                  className="flex size-7 items-center justify-center rounded-full bg-button-background text-button-foreground hover:bg-button-hover cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                   title={t('common.send')}
                   disabled={inputDisabled || submitting || serviceDisabled || modelSubmitting || presetSubmitting || text.trim().length === 0}
                   onClick={() => send('enter')}

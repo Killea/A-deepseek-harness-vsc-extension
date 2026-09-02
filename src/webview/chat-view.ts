@@ -22,6 +22,8 @@ import type {
   ExtensionToWebviewMessage,
   SessionActivityView,
   SessionSummary,
+  TreasureCounts,
+  TreasureType,
   WebviewToExtensionMessage,
 } from "../shared/protocol.ts";
 import type { SessionService } from "../services/session-service.ts";
@@ -128,6 +130,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       sessionId: string,
       onSnapshot: (snapshot: unknown) => void,
     ) => () => void,
+    private readonly globalState: vscode.Memento,
   ) {
     // Streaming/replay updates: push a fresh snapshot whenever the selected
     // session's fold changes (chunk deltas, turn boundaries, replay resync).
@@ -580,6 +583,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       case "openFile":
         await this.serveOpenFile(message.path);
         break;
+      case "treasurePickup":
+        this.onTreasurePickup(message.treasure);
+        break;
+      case "treasureRequestCounts":
+        this.pushTreasureCounts();
+        break;
     }
   }
 
@@ -885,6 +894,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.postPermissions(sessionId);
     this.postStats(sessionId);
     await this.refreshComposerCatalogs(sessionId);
+    // Easter egg: 推送宝物收集统计（webview About 页展示）。
+    this.pushTreasureCounts();
   }
 
   /**
@@ -1901,5 +1912,41 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       `</head><body style="padding:12px;font-family:var(--vscode-font-family);color:var(--vscode-errorForeground)">` +
       `${escapeHtml(message)}</body></html>`
     );
+  }
+
+  // ---- Easter egg: treasure collection (persisted in globalState) ----
+
+  private static readonly TREASURE_KEY = "treasureCounts";
+
+  /** 拾取一个宝物 → 更新 globalState 并推送新统计到 webview。 */
+  private onTreasurePickup(type: TreasureType): void {
+    const counts = this.readTreasureCounts();
+    counts[type] += 1;
+    void this.globalState.update(
+      ChatViewProvider.TREASURE_KEY,
+      counts,
+    );
+    this.pushTreasureCounts(counts);
+  }
+
+  /** 读取当前收集统计（缺失字段补 0）。 */
+  private readTreasureCounts(): TreasureCounts {
+    const raw = this.globalState.get<Partial<TreasureCounts>>(
+      ChatViewProvider.TREASURE_KEY,
+    );
+    return {
+      coin: raw?.coin ?? 0,
+      gem: raw?.gem ?? 0,
+      bill: raw?.bill ?? 0,
+      diamond: raw?.diamond ?? 0,
+    };
+  }
+
+  /** 推送收集统计到 webview。 */
+  private pushTreasureCounts(counts?: TreasureCounts): void {
+    this.post({
+      type: "treasureCounts",
+      counts: counts ?? this.readTreasureCounts(),
+    });
   }
 }

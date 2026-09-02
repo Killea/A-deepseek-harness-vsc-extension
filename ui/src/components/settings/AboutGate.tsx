@@ -4,7 +4,7 @@
  * 数据源与设置面板同一 SettingsPanelView（扩展侧在终态/重水合时推送）。
  */
 import { useTranslation } from 'react-i18next'
-import type { SettingsPanelView } from '../../../../src/shared/protocol.ts'
+import type { SettingsPanelView, TreasureCounts } from '../../../../src/shared/protocol.ts'
 import { IconRefreshOutline14 } from '../../../icons/index.tsx'
 import type { SettingsWire } from './wire.ts'
 import { AboutPage } from './AboutPage.tsx'
@@ -13,9 +13,10 @@ interface AboutGateProps {
   panel: SettingsPanelView | null
   wire: SettingsWire
   onOpenInBrowser: () => void
+  treasureCounts: TreasureCounts | null
 }
 
-export function AboutGate({ panel, wire, onOpenInBrowser }: AboutGateProps) {
+export function AboutGate({ panel, wire, onOpenInBrowser, treasureCounts }: AboutGateProps) {
   const { t } = useTranslation()
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -32,7 +33,7 @@ export function AboutGate({ panel, wire, onOpenInBrowser }: AboutGateProps) {
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <AboutPage panel={panel} wire={wire} onOpenInBrowser={onOpenInBrowser} />
+        <AboutPage panel={panel} wire={wire} onOpenInBrowser={onOpenInBrowser} treasureCounts={treasureCounts} />
       </div>
     </div>
   )
